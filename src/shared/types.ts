@@ -1,17 +1,37 @@
 import type { RPCSchema } from "electrobun/bun";
 
 export type AppRPCType = {
-  bun: RPCSchema<{
-    requests: {
-      calculateFibonacci: { 
-        params: { n: number }; 
-        response: { n: number; result: number }; 
-      };
-    };
-    messages: {};
-  }>;
-  webview: RPCSchema<{
-    requests: {};
-    messages: {};
-  }>;
+	bun: RPCSchema<{
+		requests: {
+			/** Opens a native file dialog and starts serving the file for preview */
+			selectInputFile: {
+				params: {};
+				response: { path: string | null; previewPort: number };
+			};
+			/** Runs native FFmpeg, saves output next to the input file */
+			exportVideo: {
+				params: {
+					inputPath: string;
+					ffmpegArgs: string[];
+					outputExt: string;
+					clipDuration: number;
+				};
+				response: {
+					success: boolean;
+					outputPath?: string;
+					error?: string;
+				};
+			};
+			/** Returns current export progress (0–1) */
+			getExportProgress: {
+				params: {};
+				response: { progress: number };
+			};
+		};
+		messages: {};
+	}>;
+	webview: RPCSchema<{
+		requests: {};
+		messages: {};
+	}>;
 };
