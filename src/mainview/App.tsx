@@ -695,11 +695,9 @@ const App = () => {
 					{!isStandalone && (
 						<div className="hidden sm:flex flex-col items-end gap-0.5">
 							<a
-								href="/download/yafw-desktop"
-								onClick={(e) => {
-									e.preventDefault();
-									alert("Standalone build packaging is handled by ElectronBun CLI. In production, this downloads the OS installer (yafw.exe / yafw.app) which enables hardware-accelerated local FFmpeg execution.");
-								}}
+								href="https://github.com/ValentinRapp/yafw/releases/latest"
+								target="_blank"
+								rel="noopener noreferrer"
 								className="px-3 py-1.5 text-xs font-bold bg-mocha-mauve text-mocha-crust hover:brightness-110 active:scale-95 rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
 							>
 								📥 Download Desktop App
@@ -747,11 +745,9 @@ const App = () => {
 									💡 <strong className="text-mocha-mauve">Tip:</strong> Download the Desktop App for hardware-accelerated rendering and 10x faster export speeds.
 								</span>
 								<a
-									href="/download/yafw-desktop"
-									onClick={(e) => {
-										e.preventDefault();
-										alert("Standalone build packaging is handled by ElectronBun CLI. In production, this downloads the OS installer (yafw.exe / yafw.app) which enables hardware-accelerated local FFmpeg execution.");
-									}}
+									href="https://github.com/ValentinRapp/yafw/releases/latest"
+									target="_blank"
+									rel="noopener noreferrer"
 									className="whitespace-nowrap px-2.5 py-1 bg-mocha-mauve text-mocha-crust font-bold rounded-lg text-[10px] hover:brightness-105 active:scale-95 transition-all shadow-sm"
 								>
 									📥 Get Desktop App

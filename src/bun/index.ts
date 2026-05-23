@@ -251,6 +251,9 @@ const mainWindow = new BrowserWindow({
 		x: 510,
 		y: 200,
 	},
+	styleMask: {
+		titleBarStyle: "hiddenInset"
+	}
 });
 
 mainWindow.setTitle("YAFW - Yet Another FFmpeg Wrapper");
