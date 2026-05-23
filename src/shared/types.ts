@@ -27,6 +27,16 @@ export type AppRPCType = {
 				params: {};
 				response: { progress: number };
 			};
+			/** Runs ffprobe to get video metadata (fps, resolution, bitrate) */
+			probeVideo: {
+				params: { inputPath: string };
+				response: {
+					fps: number;
+					width: number;
+					height: number;
+					bitrate: number; // kbps
+				};
+			};
 		};
 		messages: {};
 	}>;

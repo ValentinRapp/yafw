@@ -211,10 +211,10 @@ const App = () => {
 	// Resolution & framerate
 	const [originalWidth, setOriginalWidth] = useState(1920);
 	const [originalHeight, setOriginalHeight] = useState(1080);
-	const [originalFps, setOriginalFps] = useState(30);
+	const [originalFps, setOriginalFps] = useState<number | null>(null);
 	const [outputWidth, setOutputWidth] = useState(1920);
 	const [outputHeight, setOutputHeight] = useState(1080);
-	const [outputFps, setOutputFps] = useState(30);
+	const [outputFps, setOutputFps] = useState<number | null>(null);
 	const [lockAspectRatio, setLockAspectRatio] = useState(true);
 
 	// Refs
@@ -258,11 +258,6 @@ const App = () => {
 			setOutputWidth(w);
 			setOutputHeight(h);
 
-			// Estimate FPS (not directly available from HTMLVideoElement,
-			// default to 30 — user can adjust)
-			setOriginalFps(30);
-			setOutputFps(30);
-
 			const estimateBitrate = (bytes: number) => {
 				if (video.duration <= 0) return;
 				const totalKbps = (bytes * 8) / (video.duration * 1000);
@@ -302,6 +297,8 @@ const App = () => {
 		const url = URL.createObjectURL(file);
 		const ext = getFileExt(file.name);
 
+		setOriginalFps(null);
+		setOutputFps(null);
 		setVideoSrc(url);
 		setVideoFile(file);
 		setNativeFilePath(null);
@@ -309,6 +306,9 @@ const App = () => {
 		setOutputFormat(ext);
 		setExportError(null);
 		detectVideoMetadata(url, file.size);
+
+		// Probe FPS/bitrate with WASM FFmpeg in the background
+		probeWithWasm(file);
 	};
 
 	// Handle native file browse (standalone only)
@@ -336,6 +336,8 @@ const App = () => {
 
 			console.log("[YAFW] Setting state:", { previewUrl, ext, path: result.path });
 
+			setOriginalFps(null);
+			setOutputFps(null);
 			setVideoSrc(previewUrl);
 			setVideoFile(null);
 			setNativeFilePath(result.path);
@@ -344,6 +346,9 @@ const App = () => {
 			setExportError(null);
 			setExportSuccess(null);
 			detectVideoMetadata(previewUrl);
+
+			// Probe FPS/bitrate with WASM FFmpeg using the localhost preview URL
+			probeWithWasm(previewUrl, result.path);
 
 			console.log("[YAFW] State set, editor should render");
 		} catch (err) {
@@ -401,6 +406,83 @@ const App = () => {
 		setWasmLoaded(true);
 	};
 
+	// ── Probe FPS with WASM FFmpeg (browser path) ──────────────────
+
+	const probeWithWasm = async (source: File | string, fileName?: string) => {
+		try {
+			await loadWasmFFmpeg();
+			const ffmpeg = ffmpegRef.current;
+
+			// Collect log output
+			const logs: string[] = [];
+			const logHandler = ({ message }: { message: string }) => {
+				logs.push(message);
+			};
+			ffmpeg.on("log", logHandler);
+
+			// Write file to WASM virtual FS
+			const name = typeof source === "string" ? (fileName || source) : source.name;
+			const ext = getFileExt(name);
+			const inputName = `probe_input.${ext}`;
+			const data = await fetchFile(source);
+			await ffmpeg.writeFile(inputName, data);
+
+			// Run ffmpeg -i (will fail with exit code 1 since no output, but logs contain info)
+			try {
+				await ffmpeg.exec(["-i", inputName]);
+			} catch {
+				// Expected to fail — we only need the log output
+			}
+
+			// Clean up
+			await ffmpeg.deleteFile(inputName);
+			ffmpeg.off("log", logHandler);
+
+			// Parse FPS from log lines like "Stream #0:0: Video: h264 ..., 29.97 fps, ..."
+			const allLogs = logs.join("\n");
+			console.log("[YAFW] WASM probe logs:", allLogs);
+
+			let detectedFps = false;
+			// Match "XX.XX fps" pattern
+			const fpsMatch = allLogs.match(/(\d+(?:\.\d+)?)\s+fps/);
+			if (fpsMatch) {
+				const fps = parseFloat(fpsMatch[1]);
+				if (fps > 0 && fps < 1000) {
+					console.log(`[YAFW] WASM detected FPS: ${fps}`);
+					setOriginalFps(fps);
+					setOutputFps(fps);
+					detectedFps = true;
+				}
+			}
+
+			if (!detectedFps) {
+				console.log("[YAFW] WASM probe did not detect FPS, falling back to 30");
+				setOriginalFps(30);
+				setOutputFps(30);
+			}
+
+			// Also try to parse bitrate from "bitrate: 1234 kb/s"
+			const brMatch = allLogs.match(/bitrate:\s+(\d+)\s+kb\/s/);
+			if (brMatch) {
+				const br = parseInt(brMatch[1]);
+				if (br > 0) {
+					console.log(`[YAFW] WASM detected bitrate: ${br} kbps`);
+					setOriginalBitrate(br);
+					setBitrate(br);
+				}
+			}
+		} catch (err) {
+			console.warn("[YAFW] probeWithWasm failed:", err);
+			setOriginalFps((current) => {
+				if (current === null) {
+					setOutputFps((outCurrent) => outCurrent === null ? 30 : outCurrent);
+					return 30;
+				}
+				return current;
+			});
+		}
+	};
+
 	// ── Build FFmpeg arguments ────────────────────────────────────
 
 	const buildFFmpegArgs = (): string[] => {
@@ -432,7 +514,7 @@ const App = () => {
 			}
 
 			// Framerate (only if changed from original)
-			if (reencode && outputFps !== originalFps) {
+			if (reencode && outputFps && originalFps && outputFps !== originalFps) {
 				args.push("-r", outputFps.toString());
 			}
 		} else {
@@ -756,27 +838,40 @@ const App = () => {
 						Framerate (FPS)
 					</label>
 					<div className="flex items-center gap-2">
-						<input
-							type="number"
-							value={outputFps}
-							min={1}
-							max={240}
-							onChange={(e) => setOutputFps(Math.max(1, parseInt(e.target.value) || originalFps))}
-							disabled={!reencode}
-							className="w-24 border border-mocha-surface2 rounded px-2 py-1.5 text-sm text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve disabled:opacity-50"
-						/>
-						<span className="text-mocha-overlay1 text-xs">fps</span>
-						<button
-							onClick={() => setOutputFps(originalFps)}
-							disabled={!reencode || outputFps === originalFps}
-							className="px-2 py-1.5 rounded text-xs bg-mocha-surface1 text-mocha-subtext0 hover:bg-mocha-surface2 transition-colors disabled:opacity-30"
-							title="Reset to original framerate"
-						>
-							Reset
-						</button>
+						{originalFps === null ? (
+							<div className="flex items-center gap-2 py-1.5">
+								<svg className="animate-spin h-4 w-4 text-mocha-mauve" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+									<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+								<span className="text-xs text-mocha-subtext0 font-medium">Detecting framerate...</span>
+							</div>
+						) : (
+							<>
+								<input
+									type="number"
+									value={outputFps ?? ""}
+									min={1}
+									max={240}
+									onChange={(e) => setOutputFps(Math.max(1, parseInt(e.target.value) || originalFps || 30))}
+									disabled={!reencode}
+									className="w-24 border border-mocha-surface2 rounded px-2 py-1.5 text-sm text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve disabled:opacity-50"
+								/>
+								<span className="text-mocha-overlay1 text-xs">fps</span>
+								<button
+									type="button"
+									onClick={() => setOutputFps(originalFps)}
+									disabled={!reencode || outputFps === originalFps}
+									className="px-2 py-1.5 rounded text-xs bg-mocha-surface1 text-mocha-subtext0 hover:bg-mocha-surface2 transition-colors disabled:opacity-30"
+									title="Reset to original framerate"
+								>
+									Reset
+								</button>
+							</>
+						)}
 					</div>
 					<p className="text-xs text-mocha-overlay0 mt-0.5">
-						Original: {originalFps} fps
+						Original: {originalFps !== null ? `${originalFps} fps` : "detecting..."}
 					</p>
 				</div>
 

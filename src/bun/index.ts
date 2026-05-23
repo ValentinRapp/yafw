@@ -179,6 +179,44 @@ const rpc = BrowserView.defineRPC<AppRPCType>({
 			getExportProgress: () => {
 				return { progress: currentExportProgress };
 			},
+
+			probeVideo: async ({ inputPath }) => {
+				console.log("[YAFW] probeVideo:", inputPath);
+				try {
+					const proc = Bun.spawn([
+						"ffprobe",
+						"-v", "error",
+						"-select_streams", "v:0",
+						"-show_entries", "stream=r_frame_rate,width,height,bit_rate",
+						"-of", "json",
+						inputPath,
+					], { stdout: "pipe", stderr: "pipe" });
+
+					const output = await new Response(proc.stdout).text();
+					await proc.exited;
+
+					const data = JSON.parse(output);
+					const stream = data?.streams?.[0] ?? {};
+
+					// Parse r_frame_rate fraction (e.g. "30000/1001" → 29.97)
+					let fps = 30;
+					if (stream.r_frame_rate) {
+						const [num, den] = stream.r_frame_rate.split("/").map(Number);
+						if (den > 0) fps = Math.round((num / den) * 100) / 100;
+					}
+
+					const width = stream.width ?? 1920;
+					const height = stream.height ?? 1080;
+					// bit_rate is in bps, convert to kbps
+					const bitrate = stream.bit_rate ? Math.round(parseInt(stream.bit_rate) / 1000) : 0;
+
+					console.log(`[YAFW] Probe: ${width}x${height} @ ${fps}fps, ${bitrate}kbps`);
+					return { fps, width, height, bitrate };
+				} catch (err) {
+					console.error("[YAFW] probeVideo error:", err);
+					return { fps: 30, width: 1920, height: 1080, bitrate: 0 };
+				}
+			},
 		},
 		messages: {},
 	},
@@ -208,9 +246,9 @@ const mainWindow = new BrowserWindow({
 	url,
 	rpc,
 	frame: {
-		width: 900,
-		height: 700,
-		x: 200,
+		width: 700,
+		height: 1025,
+		x: 510,
 		y: 200,
 	},
 });
