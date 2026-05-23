@@ -37,6 +37,11 @@ const NATIVE_CODEC_OVERRIDES: Record<string, string[]> = {
 const isStandalone =
 	typeof window !== "undefined" && "__electrobunSendToHost" in window;
 
+// Detect if running on macOS (useful for platform-specific styling like traffic lights padding and titlebar drag)
+const isMac =
+	typeof window !== "undefined" &&
+	/Mac|iPhone|iPad|iPod/i.test(navigator.userAgent || navigator.platform || "");
+
 // Helper to extract file extension
 const getFileExt = (name: string): string =>
 	(name.split(".").pop() || "mp4").toLowerCase();
@@ -678,7 +683,7 @@ const App = () => {
 			<div className="absolute bottom-1/4 left-1/3 w-[300px] h-[300px] bg-mocha-blue/3 rounded-full blur-[100px] pointer-events-none" />
 
 			{/* Navbar / Header */}
-			<header className="bg-mocha-crust/80 backdrop-blur border-b border-mocha-surface0 px-6 py-4 flex items-center justify-between z-20">
+			<header className={`${isStandalone && isMac ? "electrobun-webkit-app-region-drag pl-24" : ""} bg-mocha-crust/80 backdrop-blur border-b border-mocha-surface0 px-6 py-4 flex items-center justify-between z-20`}>
 				<div className="flex items-center gap-3 select-none">
 					<span className="text-2xl">🎬</span>
 					<div>
@@ -698,7 +703,7 @@ const App = () => {
 								href="https://github.com/ValentinRapp/yafw/releases/latest"
 								target="_blank"
 								rel="noopener noreferrer"
-								className="px-3 py-1.5 text-xs font-bold bg-mocha-mauve text-mocha-crust hover:brightness-110 active:scale-95 rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
+								className="electrobun-webkit-app-region-no-drag px-3 py-1.5 text-xs font-bold bg-mocha-mauve text-mocha-crust hover:brightness-110 active:scale-95 rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
 							>
 								📥 Download Desktop App
 							</a>
@@ -712,7 +717,7 @@ const App = () => {
 					{videoSrc && (
 						<button
 							onClick={handleChangeVideo}
-							className="px-3.5 py-2 text-xs font-bold bg-mocha-surface1 text-mocha-text hover:bg-mocha-surface2 active:scale-95 rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
+							className="electrobun-webkit-app-region-no-drag px-3.5 py-2 text-xs font-bold bg-mocha-surface1 text-mocha-text hover:bg-mocha-surface2 active:scale-95 rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
 						>
 							📁 Change Video
 						</button>
