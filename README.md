@@ -17,11 +17,27 @@
 
 ## 🛠️ Getting Started
 
+### Installing the application
+
+1) Go to the [releases tab](https://github.com/ValentinRapp/yafw/releases/latest)
+2) Download the appropriate installer for your platform
+  - **Windows** -> ``stable-win-x64-yafw-Setup.zip``
+  - **MacOS** -> ``stable-macos-arm64-yafw.dmg``
+  - **Linux** -> ``stable-linux-x64-yafw-Setup.tar.gz``
+3) - **On windows and Linux**: decompress the archive and run the installer
+   - **On Macos**: run the ``.dmg`` file and drag the application to the ``Applications`` folder
+
+**IMPORTANT NOTE FOR MACOS USERS**: After installing the application, open the ``Terminal`` application and run ``xattr -cr /Applications/yafw.app`` from there
+
+> This signs the application, you can't go past this step as that would require me to pay a yearly fee of $99 to Apple...
+
+## 🔧 Developing
+
 ### Prerequisites
 
 You need [Bun](https://bun.sh) installed on your system.
 
-### Installation
+### Setup
 
 ```bash
 # Clone the repository and navigate to the directory
