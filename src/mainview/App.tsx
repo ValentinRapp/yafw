@@ -110,6 +110,13 @@ const FileDropZone = ({ onFileSelect, onNativeBrowse }: FileDropZoneProps) => {
 	const handleDrop = (e: React.DragEvent) => {
 		e.preventDefault();
 		setIsDragging(false);
+
+		// In standalone mode, always use native dialog (drop doesn't give us a file path)
+		if (isStandalone && onNativeBrowse) {
+			onNativeBrowse();
+			return;
+		}
+
 		const file = e.dataTransfer.files[0];
 		if (file && file.type.startsWith("video/")) {
 			onFileSelect(file);
@@ -119,6 +126,15 @@ const FileDropZone = ({ onFileSelect, onNativeBrowse }: FileDropZoneProps) => {
 	const handleDragOver = (e: React.DragEvent) => {
 		e.preventDefault();
 		setIsDragging(true);
+	};
+
+	const handleClick = () => {
+		// In standalone mode, always use native dialog
+		if (isStandalone && onNativeBrowse) {
+			onNativeBrowse();
+			return;
+		}
+		fileInputRef.current?.click();
 	};
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,33 +152,29 @@ const FileDropZone = ({ onFileSelect, onNativeBrowse }: FileDropZoneProps) => {
 			onDrop={handleDrop}
 			onDragOver={handleDragOver}
 			onDragLeave={() => setIsDragging(false)}
-			onClick={() => fileInputRef.current?.click()}
+			onClick={handleClick}
 		>
-			<input
-				ref={fileInputRef}
-				type="file"
-				accept="video/*"
-				className="hidden"
-				onChange={handleInputChange}
-			/>
+			{/* Browser file input (only used in browser mode) */}
+			{!isStandalone && (
+				<input
+					ref={fileInputRef}
+					type="file"
+					accept="video/*"
+					className="hidden"
+					onChange={handleInputChange}
+				/>
+			)}
 			<div className="text-4xl mb-3">🎬</div>
 			<p className="text-mocha-subtext1 font-medium">
-				Drop a video file here
+				{isStandalone
+					? "Click to select a video"
+					: "Drop a video file here"}
 			</p>
 			<p className="text-mocha-overlay1 text-sm mt-1">
-				or click to browse
+				{isStandalone
+					? "or drop a video file here"
+					: "or click to browse"}
 			</p>
-			{isStandalone && onNativeBrowse && (
-				<button
-					onClick={(e) => {
-						e.stopPropagation();
-						onNativeBrowse();
-					}}
-					className="mt-4 bg-mocha-surface1 text-mocha-text px-4 py-2 rounded hover:bg-mocha-surface2 transition-colors text-sm"
-				>
-					📁 Browse with system dialog
-				</button>
-			)}
 		</div>
 	);
 };
@@ -193,8 +205,17 @@ const App = () => {
 	// Encoding options
 	const [bitrate, setBitrate] = useState(1000);
 	const [originalBitrate, setOriginalBitrate] = useState(1000);
-	const [reencode, setReencode] = useState(true);
+	const [reencode, setReencode] = useState(false);
 	const [outputFormat, setOutputFormat] = useState("mp4");
+
+	// Resolution & framerate
+	const [originalWidth, setOriginalWidth] = useState(1920);
+	const [originalHeight, setOriginalHeight] = useState(1080);
+	const [originalFps, setOriginalFps] = useState(30);
+	const [outputWidth, setOutputWidth] = useState(1920);
+	const [outputHeight, setOutputHeight] = useState(1080);
+	const [outputFps, setOutputFps] = useState(30);
+	const [lockAspectRatio, setLockAspectRatio] = useState(true);
 
 	// Refs
 	const ffmpegRef = useRef(new FFmpeg());
@@ -207,6 +228,7 @@ const App = () => {
 		import("electrobun/view")
 			.then(({ Electroview }: any) => {
 				const rpc = Electroview.defineRPC<AppRPCType>({
+					maxRequestTime: 600_000, // 10 min — native dialogs block
 					handlers: { requests: {}, messages: {} },
 				});
 				electroviewRef.current = new Electroview({ rpc });
@@ -227,6 +249,19 @@ const App = () => {
 			setStart(0);
 			setEnd(1000);
 			setPosition(0);
+
+			// Detect resolution
+			const w = video.videoWidth || 1920;
+			const h = video.videoHeight || 1080;
+			setOriginalWidth(w);
+			setOriginalHeight(h);
+			setOutputWidth(w);
+			setOutputHeight(h);
+
+			// Estimate FPS (not directly available from HTMLVideoElement,
+			// default to 30 — user can adjust)
+			setOriginalFps(30);
+			setOutputFps(30);
 
 			const estimateBitrate = (bytes: number) => {
 				if (video.duration <= 0) return;
@@ -278,23 +313,42 @@ const App = () => {
 
 	// Handle native file browse (standalone only)
 	const handleNativeBrowse = async () => {
+		console.log("[YAFW] handleNativeBrowse called");
 		const ev = electroviewRef.current;
-		if (!ev) return;
+		if (!ev) {
+			console.error("[YAFW] handleNativeBrowse: electroviewRef is null!");
+			return;
+		}
 
-		const result = await ev.rpc.request.selectInputFile({});
-		if (!result.path) return;
+		try {
+			console.log("[YAFW] Calling selectInputFile RPC...");
+			const result = await ev.rpc.request.selectInputFile({});
+			console.log("[YAFW] selectInputFile result:", result);
 
-		cleanupVideoSrc();
-		const previewUrl = `http://localhost:${result.previewPort}/preview`;
-		const ext = getFileExt(result.path);
+			if (!result.path) {
+				console.log("[YAFW] No path returned, user cancelled");
+				return;
+			}
 
-		setVideoSrc(previewUrl);
-		setVideoFile(null);
-		setNativeFilePath(result.path);
-		setSourceFormat(ext);
-		setOutputFormat(ext);
-		setExportError(null);
-		detectVideoMetadata(previewUrl);
+			cleanupVideoSrc();
+			const previewUrl = `http://localhost:${result.previewPort}/`;
+			const ext = getFileExt(result.path);
+
+			console.log("[YAFW] Setting state:", { previewUrl, ext, path: result.path });
+
+			setVideoSrc(previewUrl);
+			setVideoFile(null);
+			setNativeFilePath(result.path);
+			setSourceFormat(ext);
+			setOutputFormat(ext);
+			setExportError(null);
+			setExportSuccess(null);
+			detectVideoMetadata(previewUrl);
+
+			console.log("[YAFW] State set, editor should render");
+		} catch (err) {
+			console.error("[YAFW] handleNativeBrowse error:", err);
+		}
 	};
 
 	// Reset to file selection screen
@@ -359,20 +413,28 @@ const App = () => {
 			"-to", endTime.toString(),
 		];
 
-		if (reencode) {
-			// User-controlled re-encoding with custom bitrate
+		const needsReencode = reencode || isConverting;
+
+		if (needsReencode) {
+			const br = reencode ? bitrate : originalBitrate;
 			args.push(
-				"-b:v", `${Math.round(bitrate)}k`,
-				"-maxrate", `${Math.round(bitrate)}k`,
-				"-bufsize", `${Math.round(bitrate * 2)}k`,
+				"-b:v", `${Math.round(br)}k`,
+				"-maxrate", `${Math.round(br)}k`,
+				"-bufsize", `${Math.round(br * 2)}k`,
 			);
-		} else if (isConverting) {
-			// Format conversion — re-encode with original bitrate
-			args.push(
-				"-b:v", `${Math.round(originalBitrate)}k`,
-				"-maxrate", `${Math.round(originalBitrate)}k`,
-				"-bufsize", `${Math.round(originalBitrate * 2)}k`,
-			);
+
+			// Resolution (only if changed from original or re-encoding)
+			if (reencode && (outputWidth !== originalWidth || outputHeight !== originalHeight)) {
+				// Ensure even dimensions (required by most codecs)
+				const w = Math.round(outputWidth / 2) * 2;
+				const h = Math.round(outputHeight / 2) * 2;
+				args.push("-vf", `scale=${w}:${h}`);
+			}
+
+			// Framerate (only if changed from original)
+			if (reencode && outputFps !== originalFps) {
+				args.push("-r", outputFps.toString());
+			}
 		} else {
 			// Same format, no re-encode — stream copy (fastest)
 			args.push("-c", "copy");
@@ -386,6 +448,7 @@ const App = () => {
 	const exportNative = async () => {
 		const ev = electroviewRef.current;
 		if (!ev || !nativeFilePath) {
+			console.error("[YAFW] exportNative: no electroview or nativeFilePath", { ev: !!ev, nativeFilePath });
 			throw new Error("Electrobun RPC or file path not available");
 		}
 
@@ -393,7 +456,11 @@ const App = () => {
 		const codecOverrides = NATIVE_CODEC_OVERRIDES[outputFormat] ?? [];
 		const fullArgs = [...args, ...codecOverrides];
 
-		console.log(`[YAFW] Native export: ${nativeFilePath} → .${outputFormat}`);
+		console.log("[YAFW] exportNative calling RPC...");
+		console.log("[YAFW]   inputPath:", nativeFilePath);
+		console.log("[YAFW]   outputExt:", outputFormat);
+		console.log("[YAFW]   clipDuration:", clipDuration);
+		console.log("[YAFW]   ffmpegArgs:", fullArgs.join(" "));
 
 		const result = await ev.rpc.request.exportVideo({
 			inputPath: nativeFilePath,
@@ -401,6 +468,8 @@ const App = () => {
 			outputExt: outputFormat,
 			clipDuration,
 		});
+
+		console.log("[YAFW] exportNative RPC result:", result);
 
 		if (!result.success) {
 			throw new Error(result.error || "Native FFmpeg export failed");
@@ -617,6 +686,98 @@ const App = () => {
 						clipDuration={clipDuration}
 						disabled={!reencode}
 					/>
+				</div>
+
+				{/* Resolution controls */}
+				<div className={`mt-3 ${!reencode ? 'opacity-50 pointer-events-none' : ''}`}>
+					<label className="block text-sm font-medium text-mocha-subtext0 mb-1">
+						Resolution
+					</label>
+					<div className="flex items-center gap-2">
+						<input
+							type="number"
+							value={outputWidth}
+							onChange={(e) => {
+								const w = parseInt(e.target.value) || originalWidth;
+								setOutputWidth(w);
+								if (lockAspectRatio && originalWidth > 0) {
+									setOutputHeight(Math.round(w * (originalHeight / originalWidth)));
+								}
+							}}
+							disabled={!reencode}
+							className="w-24 border border-mocha-surface2 rounded px-2 py-1.5 text-sm text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve disabled:opacity-50"
+						/>
+						<span className="text-mocha-overlay1 text-sm">×</span>
+						<input
+							type="number"
+							value={outputHeight}
+							onChange={(e) => {
+								const h = parseInt(e.target.value) || originalHeight;
+								setOutputHeight(h);
+								if (lockAspectRatio && originalHeight > 0) {
+									setOutputWidth(Math.round(h * (originalWidth / originalHeight)));
+								}
+							}}
+							disabled={!reencode}
+							className="w-24 border border-mocha-surface2 rounded px-2 py-1.5 text-sm text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve disabled:opacity-50"
+						/>
+						<button
+							onClick={() => setLockAspectRatio(!lockAspectRatio)}
+							disabled={!reencode}
+							className={`p-1.5 rounded text-sm transition-colors ${
+								lockAspectRatio
+									? 'bg-mocha-mauve/20 text-mocha-mauve'
+									: 'bg-mocha-surface1 text-mocha-overlay1'
+							} hover:bg-mocha-mauve/30 disabled:opacity-50`}
+							title={lockAspectRatio ? 'Aspect ratio locked' : 'Aspect ratio unlocked'}
+						>
+							{lockAspectRatio ? '🔗' : '🔓'}
+						</button>
+						<button
+							onClick={() => {
+								setOutputWidth(originalWidth);
+								setOutputHeight(originalHeight);
+							}}
+							disabled={!reencode || (outputWidth === originalWidth && outputHeight === originalHeight)}
+							className="px-2 py-1.5 rounded text-xs bg-mocha-surface1 text-mocha-subtext0 hover:bg-mocha-surface2 transition-colors disabled:opacity-30"
+							title="Reset to original resolution"
+						>
+							Reset
+						</button>
+					</div>
+					<p className="text-xs text-mocha-overlay0 mt-0.5">
+						Original: {originalWidth}×{originalHeight}
+					</p>
+				</div>
+
+				{/* Framerate control */}
+				<div className={`mt-3 ${!reencode ? 'opacity-50 pointer-events-none' : ''}`}>
+					<label className="block text-sm font-medium text-mocha-subtext0 mb-1">
+						Framerate (FPS)
+					</label>
+					<div className="flex items-center gap-2">
+						<input
+							type="number"
+							value={outputFps}
+							min={1}
+							max={240}
+							onChange={(e) => setOutputFps(Math.max(1, parseInt(e.target.value) || originalFps))}
+							disabled={!reencode}
+							className="w-24 border border-mocha-surface2 rounded px-2 py-1.5 text-sm text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve disabled:opacity-50"
+						/>
+						<span className="text-mocha-overlay1 text-xs">fps</span>
+						<button
+							onClick={() => setOutputFps(originalFps)}
+							disabled={!reencode || outputFps === originalFps}
+							className="px-2 py-1.5 rounded text-xs bg-mocha-surface1 text-mocha-subtext0 hover:bg-mocha-surface2 transition-colors disabled:opacity-30"
+							title="Reset to original framerate"
+						>
+							Reset
+						</button>
+					</div>
+					<p className="text-xs text-mocha-overlay0 mt-0.5">
+						Original: {originalFps} fps
+					</p>
 				</div>
 
 				{/* Export error */}

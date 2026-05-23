@@ -1,14 +1,12 @@
-import { BrowserWindow, BrowserView, Updater } from "electrobun/bun";
+import { BrowserWindow, BrowserView, Updater, Utils } from "electrobun/bun";
 import { type AppRPCType } from "../shared/types";
-import { platform } from "os";
 import { basename, dirname, extname, join } from "path";
+import { homedir } from "os";
 
 const DEV_SERVER_PORT = 5173;
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
-const VIDEO_FILTER = "*.mp4;*.webm;*.mkv;*.mov;*.avi;*.flv;*.ts;*.ogg";
 
 // ── Preview file server ──────────────────────────────────────────
-// Serves the currently selected video file to the webview for preview.
 
 let currentVideoPath: string | null = null;
 
@@ -40,67 +38,12 @@ const previewServer = Bun.serve({
 	},
 });
 
-console.log(`[YAFW] Preview server started on port ${previewServer.port}`);
-
-// ── Native file dialog (open only) ──────────────────────────────
-
-async function showOpenFileDialog(): Promise<string | null> {
-	const os = platform();
-
-	if (os === "win32") {
-		const script = `
-			Add-Type -AssemblyName System.Windows.Forms
-			$f = New-Object System.Windows.Forms.Form
-			$f.TopMost = $true
-			$f.ShowInTaskbar = $false
-			$f.WindowState = 'Minimized'
-			$d = New-Object System.Windows.Forms.OpenFileDialog
-			$d.Filter = "Video files|${VIDEO_FILTER}|All files|*.*"
-			$result = $d.ShowDialog($f)
-			$f.Dispose()
-			if ($result -eq [System.Windows.Forms.DialogResult]::OK) { $d.FileName }
-		`;
-		const proc = Bun.spawn(
-			["powershell", "-NoProfile", "-STA", "-Command", script],
-			{ stdout: "pipe", stderr: "pipe" },
-		);
-		const stdoutPromise = new Response(proc.stdout).text();
-		const stderrPromise = new Response(proc.stderr).text();
-		await proc.exited;
-		const stderr = (await stderrPromise).trim();
-		if (stderr) console.warn(`[YAFW] Open dialog stderr: ${stderr}`);
-		return (await stdoutPromise).trim() || null;
-	}
-
-	if (os === "darwin") {
-		const proc = Bun.spawn(
-			[
-				"osascript", "-e",
-				'POSIX path of (choose file of type {"public.movie"} with prompt "Select a video file")',
-			],
-			{ stdout: "pipe", stderr: "pipe" },
-		);
-		await proc.exited;
-		return (await new Response(proc.stdout).text()).trim() || null;
-	}
-
-	// Linux: zenity
-	const proc = Bun.spawn(
-		["zenity", "--file-selection", `--file-filter=Video files | ${VIDEO_FILTER.replace(/;/g, " ")}`],
-		{ stdout: "pipe", stderr: "pipe" },
-	);
-	await proc.exited;
-	return (await new Response(proc.stdout).text()).trim() || null;
-}
+const PREVIEW_PORT: number = previewServer.port ?? 0;
+console.log(`[YAFW] Preview server on port ${PREVIEW_PORT}`);
 
 // ── Output path generation ───────────────────────────────────────
-// Saves next to the source file: video.mp4 → video-yafw.webm
-// Adds a counter if the file already exists: video-yafw-2.webm
 
-async function generateOutputPath(
-	inputPath: string,
-	outputExt: string,
-): Promise<string> {
+async function generateOutputPath(inputPath: string, outputExt: string): Promise<string> {
 	const dir = dirname(inputPath);
 	const base = basename(inputPath, extname(inputPath));
 	const stem = `${base}-yafw`;
@@ -121,42 +64,68 @@ async function generateOutputPath(
 let currentExportProgress = 0;
 
 const rpc = BrowserView.defineRPC<AppRPCType>({
-	maxRequestTime: 600_000, // 10 min timeout for video exports
+	maxRequestTime: 600_000,
 	handlers: {
 		requests: {
 			selectInputFile: async () => {
-				const path = await showOpenFileDialog();
-				if (path) {
-					currentVideoPath = path;
-					console.log(`[YAFW] Selected input file: ${path}`);
+				console.log("[YAFW] selectInputFile called");
+				try {
+					const chosenPaths = await Utils.openFileDialog({
+						startingFolder: join(homedir(), "Videos"),
+						allowedFileTypes: "*",
+						canChooseFiles: true,
+						canChooseDirectory: false,
+						allowsMultipleSelection: false,
+					});
+
+					console.log("[YAFW] openFileDialog returned:", chosenPaths);
+					// openFileDialog returns [""] on cancel, not null
+					const rawPath = chosenPaths && chosenPaths.length > 0 ? chosenPaths[0] : "";
+					const path = rawPath && rawPath.length > 0 ? rawPath : null;
+
+					if (path) {
+						currentVideoPath = path;
+						console.log(`[YAFW] Selected: ${path}`);
+					} else {
+						console.log("[YAFW] No file selected (cancelled)");
+					}
+
+					return { path, previewPort: PREVIEW_PORT };
+				} catch (err) {
+					console.error("[YAFW] selectInputFile error:", err);
+					return { path: null, previewPort: PREVIEW_PORT };
 				}
-				return { path, previewPort: previewServer.port };
 			},
 
 			exportVideo: async ({ inputPath, ffmpegArgs, outputExt, clipDuration }) => {
+				console.log("[YAFW] exportVideo called");
+				console.log("[YAFW]   inputPath:", inputPath);
+				console.log("[YAFW]   outputExt:", outputExt);
+				console.log("[YAFW]   clipDuration:", clipDuration);
+				console.log("[YAFW]   ffmpegArgs:", ffmpegArgs.join(" "));
+
 				try {
 					currentExportProgress = 0;
 					const outputPath = await generateOutputPath(inputPath, outputExt);
+					console.log("[YAFW]   outputPath:", outputPath);
+
 					const fullArgs = [
 						"-y", "-i", inputPath,
 						...ffmpegArgs,
 						"-progress", "pipe:1",
 						outputPath,
 					];
-					console.log(`[FFmpeg] Running: ffmpeg ${fullArgs.join(" ")}`);
-					console.log(`[FFmpeg] Output: ${outputPath}`);
+					console.log(`[FFmpeg] ffmpeg ${fullArgs.join(" ")}`);
 
 					const proc = Bun.spawn(["ffmpeg", ...fullArgs], {
 						stdout: "pipe",
 						stderr: "pipe",
 					});
 
-					// Consume stderr in parallel to avoid pipe buffer deadlock
-					const stderrPromise = new Response(proc.stderr).text();
-
-					// Parse stdout for progress updates
 					const totalUs = clipDuration * 1_000_000;
-					if (totalUs > 0) {
+
+					// Read stdout (progress) and stderr (errors) in parallel to avoid deadlock
+					const stdoutPromise = (async () => {
 						const decoder = new TextDecoder();
 						let buffer = "";
 						for await (const chunk of proc.stdout) {
@@ -165,29 +134,44 @@ const rpc = BrowserView.defineRPC<AppRPCType>({
 							buffer = lines.pop() || "";
 							for (const line of lines) {
 								const match = line.match(/^out_time_us=(\d+)/);
-								if (match) {
-									currentExportProgress = Math.min(1, parseInt(match[1]) / totalUs);
+								if (match && totalUs > 0) {
+									currentExportProgress = Math.min(0.99, parseInt(match[1]) / totalUs);
 								}
 							}
 						}
-					}
+					})();
 
-					await proc.exited;
+					const stderrPromise = new Response(proc.stderr).text();
+
+					// Wait for both streams AND process exit
+					await Promise.all([stdoutPromise, stderrPromise, proc.exited]);
+
+					console.log(`[FFmpeg] Exit code: ${proc.exitCode}`);
 
 					if (proc.exitCode !== 0) {
-						const stderr = await stderrPromise;
+						const stderrText = await stderrPromise;
 						currentExportProgress = 0;
+						console.error("[FFmpeg] stderr:", stderrText.slice(-500));
 						return {
 							success: false,
-							error: `FFmpeg exited with code ${proc.exitCode}: ${stderr}`,
+							error: `FFmpeg exited with code ${proc.exitCode}: ${stderrText.slice(-500)}`,
 						};
 					}
 
 					currentExportProgress = 1;
 					console.log(`[YAFW] Export complete: ${outputPath}`);
+
+					// Reveal in file manager
+					try {
+						Utils.showItemInFolder(outputPath);
+					} catch (e) {
+						console.warn("[YAFW] showItemInFolder failed:", e);
+					}
+
 					return { success: true, outputPath };
 				} catch (err) {
 					currentExportProgress = 0;
+					console.error("[YAFW] exportVideo error:", err);
 					return { success: false, error: String(err) };
 				}
 			},
@@ -207,15 +191,17 @@ async function getMainViewUrl(): Promise<string> {
 	if (channel === "dev") {
 		try {
 			await fetch(DEV_SERVER_URL, { method: "HEAD" });
+			console.log("[YAFW] Using Vite dev server");
 			return DEV_SERVER_URL;
 		} catch {
-			console.log("Vite dev server not running, falling back to bundled view.");
+			console.log("[YAFW] Vite not running, using bundled view");
 		}
 	}
 	return "views://mainview/index.html";
 }
 
 const url = await getMainViewUrl();
+console.log("[YAFW] Loading URL:", url);
 
 const mainWindow = new BrowserWindow({
 	title: "YAFW",
@@ -230,3 +216,12 @@ const mainWindow = new BrowserWindow({
 });
 
 mainWindow.setTitle("YAFW - Yet Another FFmpeg Wrapper");
+console.log("[YAFW] Window created, RPC active");
+
+// Open DevTools in dev mode for debugging
+mainWindow.webview.openDevTools();
+
+// Log when the webview is ready
+mainWindow.webview.on("dom-ready", () => {
+	console.log("[YAFW] Webview DOM ready");
+});
