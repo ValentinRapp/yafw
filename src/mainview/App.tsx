@@ -700,7 +700,7 @@ const App = () => {
 					{!isStandalone && (
 						<div className="hidden sm:flex flex-col items-end gap-0.5">
 							<a
-								href="https://github.com/ValentinRapp/yafw/releases/latest"
+								href="https://github.com/ValentinRapp/yafw"
 								target="_blank"
 								rel="noopener noreferrer"
 								className="electrobun-webkit-app-region-no-drag px-3 py-1.5 text-xs font-bold bg-mocha-mauve text-mocha-crust hover:brightness-110 active:scale-95 rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
@@ -750,7 +750,7 @@ const App = () => {
 									💡 <strong className="text-mocha-mauve">Tip:</strong> Download the Desktop App for hardware-accelerated rendering and 10x faster export speeds.
 								</span>
 								<a
-									href="https://github.com/ValentinRapp/yafw/releases/latest"
+									href="https://github.com/ValentinRapp/yafw"
 									target="_blank"
 									rel="noopener noreferrer"
 									className="whitespace-nowrap px-2.5 py-1 bg-mocha-mauve text-mocha-crust font-bold rounded-lg text-[10px] hover:brightness-105 active:scale-95 transition-all shadow-sm"
