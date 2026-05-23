@@ -246,8 +246,8 @@ const mainWindow = new BrowserWindow({
 	url,
 	rpc,
 	frame: {
-		width: 700,
-		height: 1025,
+		width: 1280,
+		height: 1000,
 		x: 510,
 		y: 200,
 	},

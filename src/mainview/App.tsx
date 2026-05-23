@@ -164,15 +164,15 @@ const FileDropZone = ({ onFileSelect, onNativeBrowse }: FileDropZoneProps) => {
 					onChange={handleInputChange}
 				/>
 			)}
-			<div className="text-4xl mb-3">🎬</div>
+			<div className="text-4xl mb-3 select-none">🎬</div>
 			<p className="text-mocha-subtext1 font-medium">
 				{isStandalone
-					? "Click to select a video"
-					: "Drop a video file here"}
+					? "Click to select a video file"
+					: "Drag & drop a video file here"}
 			</p>
 			<p className="text-mocha-overlay1 text-sm mt-1">
 				{isStandalone
-					? "or drop a video file here"
+					? "opens system file explorer"
 					: "or click to browse"}
 			</p>
 		</div>
@@ -669,276 +669,387 @@ const App = () => {
 		return () => clearInterval(interval);
 	}, [exporting, useNativeExport]);
 
-	// ── Render: file selection screen ─────────────────────────────
-
-	if (!videoSrc) {
-		return (
-			<div className="flex flex-col items-center justify-center p-8 bg-mocha-base min-h-screen text-mocha-text">
-				<div className="bg-mocha-surface0 p-6 rounded-xl shadow-lg w-full max-w-xl">
-					<h1 className="text-xl font-bold text-mocha-text mb-1 text-center">
-						YAFW
-					</h1>
-					<p className="text-sm text-mocha-subtext0 text-center mb-6">
-						Yet Another FFmpeg Wrapper
-					</p>
-					<FileDropZone
-						onFileSelect={handleFileSelect}
-						onNativeBrowse={
-							isStandalone ? handleNativeBrowse : undefined
-						}
-					/>
-				</div>
-			</div>
-		);
-	}
-
-	// ── Render: editor ────────────────────────────────────────────
+	// ── Render ────────────────────────────────────────────────────
 
 	return (
-		<div className="flex flex-col items-center justify-center p-8 bg-mocha-base min-h-screen text-mocha-text">
-			<div className="bg-mocha-surface0 p-6 rounded-xl shadow-lg w-full max-w-xl">
-				<Player
-					videoSrc={videoSrc}
-					positionState={{ position, setPosition }}
-					isPlayingState={{ isPlaying, setIsPlaying }}
-					startState={{ start, setStart }}
-					endState={{ end, setEnd }}
-				/>
+		<div className="flex flex-col bg-mocha-base min-h-screen text-mocha-text relative overflow-hidden">
+			{/* Background Glows (visible on both pages, adds premium feel) */}
+			<div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-mocha-mauve/5 rounded-full blur-[120px] pointer-events-none" />
+			<div className="absolute bottom-1/4 left-1/3 w-[300px] h-[300px] bg-mocha-blue/3 rounded-full blur-[100px] pointer-events-none" />
 
-				<Timeline
-					startState={{ start, setStart }}
-					endState={{ end, setEnd }}
-					setPosition={setPosition}
-				/>
-
-				{/* Re-encode toggle */}
-				<div className="mt-4 flex items-center gap-3">
-					<button
-						type="button"
-						role="switch"
-						aria-checked={reencode}
-						onClick={() => setReencode(!reencode)}
-						className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-mocha-mauve focus:ring-offset-2 focus:ring-offset-mocha-surface0 ${
-							reencode ? "bg-mocha-mauve" : "bg-mocha-surface2"
-						}`}
-					>
-						<span
-							className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-mocha-text shadow ring-0 transition duration-200 ease-in-out ${
-								reencode ? "translate-x-5" : "translate-x-0"
-							}`}
-						/>
-					</button>
-					<span className="text-sm font-medium text-mocha-subtext1">
-						Re-encode video
-					</span>
-				</div>
-
-				{/* Output format selector */}
-				<div className="mt-3">
-					<label
-						htmlFor="format-select"
-						className="block text-sm font-medium text-mocha-subtext0 mb-1"
-					>
-						Output format
-					</label>
-					<select
-						id="format-select"
-						value={outputFormat}
-						onChange={(e) => setOutputFormat(e.target.value)}
-						className="w-full border border-mocha-surface2 rounded px-3 py-2 text-sm text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve focus:border-transparent appearance-none cursor-pointer"
-					>
-						{OUTPUT_FORMATS.map((fmt) => (
-							<option key={fmt.ext} value={fmt.ext}>
-								{fmt.label}
-							</option>
-						))}
-					</select>
-					{isConverting && (
-						<p className="text-xs text-mocha-peach italic mt-1">
-							Format conversion requires re-encoding
+			{/* Navbar / Header */}
+			<header className="bg-mocha-crust/80 backdrop-blur border-b border-mocha-surface0 px-6 py-4 flex items-center justify-between z-20">
+				<div className="flex items-center gap-3 select-none">
+					<span className="text-2xl">🎬</span>
+					<div>
+						<h1 className="text-lg font-black tracking-wider bg-gradient-to-r from-mocha-mauve via-mocha-pink to-mocha-blue bg-clip-text text-transparent">
+							YAFW
+						</h1>
+						<p className="text-[10px] text-mocha-subtext0 font-medium uppercase tracking-widest">
+							Yet Another FFmpeg Wrapper
 						</p>
+					</div>
+				</div>
+				<div className="flex items-center gap-4">
+					{/* Download Standalone Version (Browser mode only) */}
+					{!isStandalone && (
+						<div className="hidden sm:flex flex-col items-end gap-0.5">
+							<a
+								href="/download/yafw-desktop"
+								onClick={(e) => {
+									e.preventDefault();
+									alert("Standalone build packaging is handled by ElectronBun CLI. In production, this downloads the OS installer (yafw.exe / yafw.app) which enables hardware-accelerated local FFmpeg execution.");
+								}}
+								className="px-3 py-1.5 text-xs font-bold bg-mocha-mauve text-mocha-crust hover:brightness-110 active:scale-95 rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
+							>
+								📥 Download Desktop App
+							</a>
+							<span className="text-[8px] text-mocha-overlay1 text-right font-medium leading-none">
+								Runs locally with native FFmpeg for 10x faster export
+							</span>
+						</div>
+					)}
+
+					{/* Change Video Button (Only if video is loaded) */}
+					{videoSrc && (
+						<button
+							onClick={handleChangeVideo}
+							className="px-3.5 py-2 text-xs font-bold bg-mocha-surface1 text-mocha-text hover:bg-mocha-surface2 active:scale-95 rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
+						>
+							📁 Change Video
+						</button>
 					)}
 				</div>
+			</header>
 
-				{/* Bitrate controls (disabled when re-encode is off) */}
-				<div className="mt-3">
-					<BitrateHandler
-						bitrate={bitrate}
-						setBitrate={setBitrate}
-						clipDuration={clipDuration}
-						disabled={!reencode}
-					/>
-				</div>
+			{/* Main Content Area */}
+			{!videoSrc ? (
+				// Landing Page
+				<div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10">
+					<div className="bg-mocha-surface0/60 backdrop-blur-md p-8 md:p-12 rounded-2xl border border-mocha-surface0 shadow-2xl w-full max-w-2xl transition-all">
+						<div className="text-center mb-8">
+							<span className="text-5xl mb-4 inline-block animate-bounce select-none">🎬</span>
+							<h1 className="text-4xl md:text-5xl font-black tracking-wider bg-gradient-to-r from-mocha-mauve via-mocha-pink to-mocha-blue bg-clip-text text-transparent mb-2">
+								YAFW
+							</h1>
+							<p className="text-xs uppercase tracking-widest text-mocha-subtext0 font-semibold mb-3">
+								Yet Another FFmpeg Wrapper
+							</p>
+							<p className="text-sm text-mocha-subtext1 max-w-md mx-auto">
+								A modern, lightweight video editor to trim, adjust, and re-encode videos in seconds. Completely private, fast, and gorgeous.
+							</p>
+						</div>
 
-				{/* Resolution controls */}
-				<div className={`mt-3 ${!reencode ? 'opacity-50 pointer-events-none' : ''}`}>
-					<label className="block text-sm font-medium text-mocha-subtext0 mb-1">
-						Resolution
-					</label>
-					<div className="flex items-center gap-2">
-						<input
-							type="number"
-							value={outputWidth}
-							onChange={(e) => {
-								const w = parseInt(e.target.value) || originalWidth;
-								setOutputWidth(w);
-								if (lockAspectRatio && originalWidth > 0) {
-									setOutputHeight(Math.round(w * (originalHeight / originalWidth)));
-								}
-							}}
-							disabled={!reencode}
-							className="w-24 border border-mocha-surface2 rounded px-2 py-1.5 text-sm text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve disabled:opacity-50"
-						/>
-						<span className="text-mocha-overlay1 text-sm">×</span>
-						<input
-							type="number"
-							value={outputHeight}
-							onChange={(e) => {
-								const h = parseInt(e.target.value) || originalHeight;
-								setOutputHeight(h);
-								if (lockAspectRatio && originalHeight > 0) {
-									setOutputWidth(Math.round(h * (originalWidth / originalHeight)));
-								}
-							}}
-							disabled={!reencode}
-							className="w-24 border border-mocha-surface2 rounded px-2 py-1.5 text-sm text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve disabled:opacity-50"
-						/>
-						<button
-							onClick={() => setLockAspectRatio(!lockAspectRatio)}
-							disabled={!reencode}
-							className={`p-1.5 rounded text-sm transition-colors ${
-								lockAspectRatio
-									? 'bg-mocha-mauve/20 text-mocha-mauve'
-									: 'bg-mocha-surface1 text-mocha-overlay1'
-							} hover:bg-mocha-mauve/30 disabled:opacity-50`}
-							title={lockAspectRatio ? 'Aspect ratio locked' : 'Aspect ratio unlocked'}
-						>
-							{lockAspectRatio ? '🔗' : '🔓'}
-						</button>
-						<button
-							onClick={() => {
-								setOutputWidth(originalWidth);
-								setOutputHeight(originalHeight);
-							}}
-							disabled={!reencode || (outputWidth === originalWidth && outputHeight === originalHeight)}
-							className="px-2 py-1.5 rounded text-xs bg-mocha-surface1 text-mocha-subtext0 hover:bg-mocha-surface2 transition-colors disabled:opacity-30"
-							title="Reset to original resolution"
-						>
-							Reset
-						</button>
-					</div>
-					<p className="text-xs text-mocha-overlay0 mt-0.5">
-						Original: {originalWidth}×{originalHeight}
-					</p>
-				</div>
-
-				{/* Framerate control */}
-				<div className={`mt-3 ${!reencode ? 'opacity-50 pointer-events-none' : ''}`}>
-					<label className="block text-sm font-medium text-mocha-subtext0 mb-1">
-						Framerate (FPS)
-					</label>
-					<div className="flex items-center gap-2">
-						{originalFps === null ? (
-							<div className="flex items-center gap-2 py-1.5">
-								<svg className="animate-spin h-4 w-4 text-mocha-mauve" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-									<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-									<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-								</svg>
-								<span className="text-xs text-mocha-subtext0 font-medium">Detecting framerate...</span>
-							</div>
-						) : (
-							<>
-								<input
-									type="number"
-									value={outputFps ?? ""}
-									min={1}
-									max={240}
-									onChange={(e) => setOutputFps(Math.max(1, parseInt(e.target.value) || originalFps || 30))}
-									disabled={!reencode}
-									className="w-24 border border-mocha-surface2 rounded px-2 py-1.5 text-sm text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve disabled:opacity-50"
-								/>
-								<span className="text-mocha-overlay1 text-xs">fps</span>
-								<button
-									type="button"
-									onClick={() => setOutputFps(originalFps)}
-									disabled={!reencode || outputFps === originalFps}
-									className="px-2 py-1.5 rounded text-xs bg-mocha-surface1 text-mocha-subtext0 hover:bg-mocha-surface2 transition-colors disabled:opacity-30"
-									title="Reset to original framerate"
+						{/* Small tip about Standalone version in browser view */}
+						{!isStandalone && (
+							<div className="mb-4 p-3 bg-mocha-mauve/10 border border-mocha-mauve/20 rounded-xl text-center text-xs text-mocha-subtext1 flex flex-col sm:flex-row items-center justify-between gap-3">
+								<span className="text-left">
+									💡 <strong className="text-mocha-mauve">Tip:</strong> Download the Desktop App for hardware-accelerated rendering and 10x faster export speeds.
+								</span>
+								<a
+									href="/download/yafw-desktop"
+									onClick={(e) => {
+										e.preventDefault();
+										alert("Standalone build packaging is handled by ElectronBun CLI. In production, this downloads the OS installer (yafw.exe / yafw.app) which enables hardware-accelerated local FFmpeg execution.");
+									}}
+									className="whitespace-nowrap px-2.5 py-1 bg-mocha-mauve text-mocha-crust font-bold rounded-lg text-[10px] hover:brightness-105 active:scale-95 transition-all shadow-sm"
 								>
-									Reset
-								</button>
-							</>
+									📥 Get Desktop App
+								</a>
+							</div>
 						)}
-					</div>
-					<p className="text-xs text-mocha-overlay0 mt-0.5">
-						Original: {originalFps !== null ? `${originalFps} fps` : "detecting..."}
-					</p>
-				</div>
 
-				{/* Export error */}
-				{exportError && (
-					<div className="mt-3 p-3 bg-mocha-red/10 border border-mocha-red/30 rounded text-sm text-mocha-red">
-						Export failed: {exportError}
-					</div>
-				)}
-
-				{/* Export success */}
-				{exportSuccess && (
-					<div className="mt-3 p-3 bg-mocha-green/10 border border-mocha-green/30 rounded text-sm text-mocha-green">
-						✅ Saved to: {exportSuccess}
-					</div>
-				)}
-
-				{/* Progress bar */}
-				{exporting && (
-					<div className="mt-3">
-						<div className="w-full h-2 bg-mocha-surface2 rounded-full overflow-hidden">
-							<div
-								className="h-full bg-mocha-mauve rounded-full transition-all duration-300 ease-out"
-								style={{ width: `${Math.round(exportProgress * 100)}%` }}
+						<div className="bg-mocha-mantle/50 p-6 rounded-xl border border-mocha-surface1">
+							<FileDropZone
+								onFileSelect={handleFileSelect}
+								onNativeBrowse={
+									isStandalone ? handleNativeBrowse : undefined
+								}
 							/>
 						</div>
-						<p className="text-xs text-mocha-subtext0 mt-1 text-center">
-							{Math.round(exportProgress * 100)}%
-						</p>
+
+						{/* Features list */}
+						<div className="mt-8 grid grid-cols-3 gap-4 border-t border-mocha-surface1/60 pt-6 text-center text-xs text-mocha-subtext1">
+							<div>
+								<span className="text-lg block mb-1">⚡</span>
+								<span className="font-bold text-mocha-text block">Instant Cuts</span>
+								Stream copy mode without re-encoding.
+							</div>
+							<div>
+								<span className="text-lg block mb-1">⚙️</span>
+								<span className="font-bold text-mocha-text block">Pro Encoder</span>
+								Adjust bitrate, custom resolution, and FPS.
+							</div>
+							<div>
+								<span className="text-lg block mb-1">📦</span>
+								<span className="font-bold text-mocha-text block">Dual Mode</span>
+								Runs in browser (WASM) or native (standalone).
+							</div>
+						</div>
 					</div>
-				)}
-
-				{/* Export section */}
-				<div className="mt-4 flex justify-between items-center">
-					<p className="text-sm text-mocha-subtext0">
-						Export from{" "}
-						{((start / 1000) * videoDuration).toFixed(2)}s to{" "}
-						{((end / 1000) * videoDuration).toFixed(2)}s
-					</p>
-					<button
-						onClick={exportVideo}
-						disabled={exporting}
-						className="bg-mocha-mauve text-mocha-crust px-4 py-2 rounded hover:brightness-110 disabled:opacity-50 font-bold transition-all"
-					>
-						{exporting
-							? "Exporting..."
-							: `Export as .${outputFormat}`}
-					</button>
 				</div>
+			) : (
+				// Editor Page
+				<main className="flex-1 p-6 flex flex-col lg:flex-row gap-6 max-w-7xl w-full mx-auto relative z-10">
+					{/* Left column: Player + Timeline */}
+					<div className="flex-1 flex flex-col gap-6">
+						<Player
+							videoSrc={videoSrc}
+							positionState={{ position, setPosition }}
+							isPlayingState={{ isPlaying, setIsPlaying }}
+							startState={{ start, setStart }}
+							endState={{ end, setEnd }}
+							videoDuration={videoDuration}
+						/>
 
-				{/* Footer: runtime info + change video */}
-				<div className="mt-3 flex justify-between items-center">
-					{useNativeExport ? (
-						<span className="text-xs text-mocha-overlay1">
-							⚡ Using native FFmpeg
-						</span>
-					) : (
-						<span />
-					)}
-					<button
-						onClick={handleChangeVideo}
-						className="text-xs text-mocha-overlay1 hover:text-mocha-text transition-colors"
-					>
-						📁 Change video
-					</button>
-				</div>
-			</div>
+						<div className="bg-mocha-surface0 rounded-xl p-5 border border-mocha-surface0 shadow-lg">
+							<h3 className="text-xs font-semibold uppercase tracking-wider text-mocha-subtext0 mb-4 select-none">
+								Timeline & Trim Controls
+							</h3>
+							<Timeline
+								startState={{ start, setStart }}
+								endState={{ end, setEnd }}
+								positionState={{ position, setPosition }}
+								videoDuration={videoDuration}
+							/>
+						</div>
+					</div>
+
+					{/* Right column: Encoder & Export Settings Sidebar */}
+					<div className="w-full lg:w-80 flex flex-col gap-6">
+						<div className="bg-mocha-surface0 rounded-xl p-5 border border-mocha-surface0 shadow-lg flex flex-col gap-4">
+							<h2 className="text-sm font-bold uppercase tracking-wider text-mocha-subtext0 border-b border-mocha-surface1 pb-2">
+								Encoder Settings
+							</h2>
+
+							{/* Re-encode toggle */}
+							<div className="flex items-center justify-between bg-mocha-mantle/50 p-3 rounded-lg border border-mocha-surface1">
+								<div className="flex flex-col">
+									<span className="text-xs font-bold text-mocha-text">Re-encode Video</span>
+									<span className="text-[10px] text-mocha-subtext0">Required for custom settings</span>
+								</div>
+								<button
+									type="button"
+									role="switch"
+									aria-checked={reencode}
+									onClick={() => setReencode(!reencode)}
+									className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-mocha-mauve ${
+										reencode ? "bg-mocha-mauve" : "bg-mocha-surface2"
+									}`}
+								>
+									<span
+										className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-mocha-text shadow ring-0 transition duration-200 ease-in-out ${
+											reencode ? "translate-x-5" : "translate-x-0"
+										}`}
+									/>
+								</button>
+							</div>
+
+							{/* Output format selector */}
+							<div>
+								<label
+									htmlFor="format-select"
+									className="block text-xs font-bold text-mocha-subtext0 mb-1"
+								>
+									Output Format
+								</label>
+								<div className="relative">
+									<select
+										id="format-select"
+										value={outputFormat}
+										onChange={(e) => setOutputFormat(e.target.value)}
+										className="w-full border border-mocha-surface2 rounded-lg px-3 py-2 text-xs text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve focus:border-transparent appearance-none cursor-pointer"
+									>
+										{OUTPUT_FORMATS.map((fmt) => (
+											<option key={fmt.ext} value={fmt.ext}>
+												{fmt.label}
+											</option>
+										))}
+									</select>
+									<div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-mocha-subtext0 text-xs">
+										▼
+									</div>
+								</div>
+								{isConverting && (
+									<p className="text-[10px] text-mocha-peach italic mt-1">
+										Format conversion requires re-encoding
+									</p>
+								)}
+							</div>
+
+							{/* Bitrate controls */}
+							<div className="border-t border-mocha-surface1 pt-3">
+								<BitrateHandler
+									bitrate={bitrate}
+									setBitrate={setBitrate}
+									clipDuration={clipDuration}
+									disabled={!reencode}
+								/>
+							</div>
+
+							{/* Resolution controls */}
+							<div className={`border-t border-mocha-surface1 pt-3 ${!reencode ? 'opacity-50 pointer-events-none' : ''}`}>
+								<label className="block text-xs font-bold text-mocha-subtext0 mb-1">
+									Resolution
+								</label>
+								<div className="flex items-center gap-2">
+									<input
+										type="number"
+										value={outputWidth}
+										onChange={(e) => {
+											const w = parseInt(e.target.value) || originalWidth;
+											setOutputWidth(w);
+											if (lockAspectRatio && originalWidth > 0) {
+												setOutputHeight(Math.round(w * (originalHeight / originalWidth)));
+											}
+										}}
+										disabled={!reencode}
+										className="w-full border border-mocha-surface2 rounded-lg px-2.5 py-1.5 text-xs text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve disabled:opacity-50"
+									/>
+									<span className="text-mocha-overlay1 text-sm select-none">×</span>
+									<input
+										type="number"
+										value={outputHeight}
+										onChange={(e) => {
+											const h = parseInt(e.target.value) || originalHeight;
+											setOutputHeight(h);
+											if (lockAspectRatio && originalHeight > 0) {
+												setOutputWidth(Math.round(h * (originalWidth / originalHeight)));
+											}
+										}}
+										disabled={!reencode}
+										className="w-full border border-mocha-surface2 rounded-lg px-2.5 py-1.5 text-xs text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve disabled:opacity-50"
+									/>
+									<button
+										onClick={() => setLockAspectRatio(!lockAspectRatio)}
+										disabled={!reencode}
+										className={`p-1.5 rounded-lg text-xs transition-colors ${
+											lockAspectRatio
+												? 'bg-mocha-mauve/20 text-mocha-mauve'
+												: 'bg-mocha-surface1 text-mocha-overlay1'
+										} hover:bg-mocha-mauve/30 disabled:opacity-50`}
+										title={lockAspectRatio ? 'Aspect ratio locked' : 'Aspect ratio unlocked'}
+									>
+										{lockAspectRatio ? '🔗' : '🔓'}
+									</button>
+									<button
+										onClick={() => {
+											setOutputWidth(originalWidth);
+											setOutputHeight(originalHeight);
+										}}
+										disabled={!reencode || (outputWidth === originalWidth && outputHeight === originalHeight)}
+										className="px-2 py-1.5 rounded-lg text-[10px] font-semibold bg-mocha-surface1 text-mocha-subtext0 hover:bg-mocha-surface2 transition-colors disabled:opacity-30"
+										title="Reset to original resolution"
+									>
+										Reset
+									</button>
+								</div>
+								<p className="text-[10px] text-mocha-overlay0 mt-1 select-none">
+									Original: {originalWidth}×{originalHeight}
+								</p>
+							</div>
+
+							{/* Framerate control */}
+							<div className={`border-t border-mocha-surface1 pt-3 ${!reencode ? 'opacity-50 pointer-events-none' : ''}`}>
+								<label className="block text-xs font-bold text-mocha-subtext0 mb-1">
+									Framerate (FPS)
+								</label>
+								<div className="flex items-center gap-2">
+									{originalFps === null ? (
+										<div className="flex items-center gap-2 py-1.5">
+											<svg className="animate-spin h-3.5 w-3.5 text-mocha-mauve" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+												<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+												<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+											</svg>
+											<span className="text-[10px] text-mocha-subtext0 font-medium">Detecting...</span>
+										</div>
+									) : (
+										<>
+											<input
+												type="number"
+												value={outputFps ?? ""}
+												min={1}
+												max={240}
+												onChange={(e) => setOutputFps(Math.max(1, parseInt(e.target.value) || originalFps || 30))}
+												disabled={!reencode}
+												className="w-full border border-mocha-surface2 rounded-lg px-2.5 py-1.5 text-xs text-mocha-text bg-mocha-surface0 focus:outline-none focus:ring-2 focus:ring-mocha-mauve disabled:opacity-50"
+											/>
+											<span className="text-mocha-overlay1 text-xs select-none">fps</span>
+											<button
+												type="button"
+												onClick={() => setOutputFps(originalFps)}
+												disabled={!reencode || outputFps === originalFps}
+												className="px-2 py-1.5 rounded-lg text-[10px] font-semibold bg-mocha-surface1 text-mocha-subtext0 hover:bg-mocha-surface2 transition-colors disabled:opacity-30"
+												title="Reset to original framerate"
+											>
+												Reset
+											</button>
+										</>
+									)}
+								</div>
+								<p className="text-[10px] text-mocha-overlay0 mt-1 select-none">
+									Original: {originalFps !== null ? `${originalFps} fps` : "detecting..."}
+								</p>
+							</div>
+						</div>
+
+						{/* Export Panel */}
+						<div className="bg-mocha-surface0 rounded-xl p-5 border border-mocha-surface0 shadow-lg flex flex-col gap-3">
+							<h2 className="text-sm font-bold uppercase tracking-wider text-mocha-subtext0 border-b border-mocha-surface1 pb-2">
+								Export
+							</h2>
+							
+							<p className="text-xs text-mocha-subtext1 select-none">
+								Trim range: <span className="font-semibold text-mocha-text">{((start / 1000) * videoDuration).toFixed(2)}s</span> to <span className="font-semibold text-mocha-text">{((end / 1000) * videoDuration).toFixed(2)}s</span>
+							</p>
+
+							{/* Export error */}
+							{exportError && (
+								<div className="p-2.5 bg-mocha-red/10 border border-mocha-red/30 rounded-lg text-[11px] text-mocha-red break-words font-medium">
+									⚠️ {exportError}
+								</div>
+							)}
+
+							{/* Export success */}
+							{exportSuccess && (
+								<div className="p-2.5 bg-mocha-green/10 border border-mocha-green/30 rounded-lg text-[11px] text-mocha-green break-words font-medium">
+									✅ {exportSuccess}
+								</div>
+							)}
+
+							{/* Progress bar */}
+							{exporting && (
+								<div className="mt-1">
+									<div className="w-full h-1.5 bg-mocha-surface2 rounded-full overflow-hidden">
+										<div
+											className="h-full bg-mocha-mauve rounded-full transition-all duration-300 ease-out"
+											style={{ width: `${Math.round(exportProgress * 100)}%` }}
+										/>
+									</div>
+									<p className="text-[10px] text-mocha-subtext0 mt-1 text-center font-bold">
+										Exporting: {Math.round(exportProgress * 100)}%
+									</p>
+								</div>
+							)}
+
+							<button
+								onClick={exportVideo}
+								disabled={exporting}
+								className="w-full bg-mocha-mauve text-mocha-crust py-2.5 rounded-lg hover:brightness-110 active:scale-[0.98] disabled:opacity-50 font-bold transition-all text-xs shadow-md"
+							>
+								{exporting ? "Exporting..." : `Export as .${outputFormat}`}
+							</button>
+
+							{/* Footer: runtime info */}
+							{useNativeExport && (
+								<p className="text-[9px] text-mocha-overlay1 text-center italic mt-1 select-none">
+									⚡ Running native hardware-accelerated FFmpeg
+								</p>
+							)}
+						</div>
+					</div>
+				</main>
+			)}
 		</div>
 	);
 };
