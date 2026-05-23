@@ -251,16 +251,16 @@ const mainWindow = new BrowserWindow({
 		x: 510,
 		y: 200,
 	},
-	styleMask: {
-		titleBarStyle: "hiddenInset"
-	}
+	// hiddenInset gives a clean look on macOS, but on Windows it removes
+	// the minimize/maximize/close buttons — so only use it on macOS.
+	...(process.platform === "darwin" ? { titleBarStyle: "hiddenInset" } : {}),
 });
 
 mainWindow.setTitle("YAFW - Yet Another FFmpeg Wrapper");
 console.log("[YAFW] Window created, RPC active");
 
 // Open DevTools in dev mode for debugging
-mainWindow.webview.openDevTools();
+// mainWindow.webview.openDevTools();
 
 // Log when the webview is ready
 mainWindow.webview.on("dom-ready", () => {
