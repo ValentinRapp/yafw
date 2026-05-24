@@ -4,6 +4,7 @@ import { Timeline } from "./Timeline";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import { type AppRPCType } from "../shared/types";
+import logoUrl from "./assets/logo.png";
 
 // ── Constants ─────────────────────────────────────────────────────
 
@@ -685,7 +686,7 @@ const App = () => {
 			{/* Navbar / Header */}
 			<header className={`${isStandalone && isMac ? "electrobun-webkit-app-region-drag pl-24" : ""} bg-mocha-crust/80 backdrop-blur border-b border-mocha-surface0 px-6 py-4 flex items-center justify-between z-20`}>
 				<div className="flex items-center gap-3 select-none">
-					<span className="text-2xl">🎬</span>
+					<img src={logoUrl} alt="YAFW Logo" className="w-8 h-8 object-contain rounded-md" />
 					<div>
 						<h1 className="text-lg font-black tracking-wider bg-gradient-to-r from-mocha-mauve via-mocha-pink to-mocha-blue bg-clip-text text-transparent">
 							YAFW
@@ -731,7 +732,7 @@ const App = () => {
 				<div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10">
 					<div className="bg-mocha-surface0/60 backdrop-blur-md p-8 md:p-12 rounded-2xl border border-mocha-surface0 shadow-2xl w-full max-w-2xl transition-all">
 						<div className="text-center mb-8">
-							<span className="text-5xl mb-4 inline-block animate-bounce select-none">🎬</span>
+							<img src={logoUrl} alt="YAFW Logo" className="w-16 h-16 mx-auto mb-4 object-contain animate-bounce select-none" />
 							<h1 className="text-4xl md:text-5xl font-black tracking-wider bg-gradient-to-r from-mocha-mauve via-mocha-pink to-mocha-blue bg-clip-text text-transparent mb-2">
 								YAFW
 							</h1>
