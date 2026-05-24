@@ -11,7 +11,7 @@
 - **Advanced Encoder Settings**: Customize video output formats (`.mp4`, `.webm`, `.mkv`, `.mov`, etc.), bitrates, target file sizes, locked aspect-ratio resolutions, and framerates.
 - **Dual-Processing Architecture**:
   - **Browser Mode (WASM)**: Processes videos fully client-side inside the browser sandbox using `@ffmpeg/ffmpeg` (WASM), keeping your data 100% private.
-  - **Desktop App Mode (Electrobun)**: Accesses your machine's native, hardware-accelerated FFmpeg for up to 10x faster exports.
+  - **Desktop App Mode (Electrobun)**: Accesses your machine's native, hardware-accelerated FFmpeg for up to 50x faster exports.
 
 ---
 
