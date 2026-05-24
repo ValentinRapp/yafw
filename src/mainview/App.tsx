@@ -703,6 +703,13 @@ const App = () => {
 	const clipDuration = ((end - start) / 1000) * videoDuration;
 	const useNativeExport = isStandalone && !!nativeFilePath && !!electroviewRef.current;
 
+	const hasHwAccSupport =
+		["mp4", "mkv", "mov", "flv", "ts"].includes(outputFormat)
+			? !!getBestH264Encoder(supportedEncoders)
+			: outputFormat === "webm"
+			? !!getBestVP9Encoder(supportedEncoders)
+			: false;
+
 	// ── Poll native export progress ──────────────────────────────
 
 	useEffect(() => {
@@ -894,23 +901,26 @@ const App = () => {
 
 							{/* Hardware Acceleration toggle (desktop standalone only) */}
 							{useNativeExport && (
-								<div className="flex items-center justify-between bg-mocha-mantle/50 p-3 rounded-lg border border-mocha-surface1">
+								<div className={`flex items-center justify-between bg-mocha-mantle/50 p-3 rounded-lg border border-mocha-surface1 transition-all ${!hasHwAccSupport ? "opacity-50" : ""}`}>
 									<div className="flex flex-col">
 										<span className="text-xs font-bold text-mocha-text">Hardware Acceleration</span>
-										<span className="text-[10px] text-mocha-subtext0">Speeds up encoding using GPU</span>
+										<span className="text-[10px] text-mocha-subtext0">
+											{hasHwAccSupport ? "Speeds up encoding using GPU" : "No compatible GPU encoder detected"}
+										</span>
 									</div>
 									<button
 										type="button"
 										role="switch"
-										aria-checked={hwAcc}
+										disabled={!hasHwAccSupport}
+										aria-checked={hwAcc && hasHwAccSupport}
 										onClick={() => setHwAcc(!hwAcc)}
 										className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-mocha-mauve ${
-											hwAcc ? "bg-mocha-mauve" : "bg-mocha-surface2"
-										}`}
+											hwAcc && hasHwAccSupport ? "bg-mocha-mauve" : "bg-mocha-surface2"
+										} ${!hasHwAccSupport ? "cursor-not-allowed opacity-50" : ""}`}
 									>
 										<span
 											className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-mocha-text shadow ring-0 transition duration-200 ease-in-out ${
-												hwAcc ? "translate-x-5" : "translate-x-0"
+												hwAcc && hasHwAccSupport ? "translate-x-5" : "translate-x-0"
 											}`}
 										/>
 									</button>
