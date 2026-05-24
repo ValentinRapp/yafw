@@ -37,6 +37,13 @@ export type AppRPCType = {
 					bitrate: number; // kbps
 				};
 			};
+			/** Probes FFmpeg to check which hardware encoders are supported */
+			detectHardwareAccelerators: {
+				params: {};
+				response: {
+					supportedEncoders: string[];
+				};
+			};
 		};
 		messages: {};
 	}>;

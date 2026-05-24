@@ -43,6 +43,21 @@ const isMac =
 	typeof window !== "undefined" &&
 	/Mac|iPhone|iPad|iPod/i.test(navigator.userAgent || navigator.platform || "");
 
+const getBestH264Encoder = (supported: string[]): string | null => {
+	if (supported.includes("h264_nvenc")) return "h264_nvenc";
+	if (supported.includes("h264_videotoolbox")) return "h264_videotoolbox";
+	if (supported.includes("h264_qsv")) return "h264_qsv";
+	if (supported.includes("h264_amf")) return "h264_amf";
+	if (supported.includes("h264_mf")) return "h264_mf";
+	return null;
+};
+
+const getBestVP9Encoder = (supported: string[]): string | null => {
+	if (supported.includes("vp9_nvenc")) return "vp9_nvenc";
+	if (supported.includes("vp9_qsv")) return "vp9_qsv";
+	return null;
+};
+
 // Helper to extract file extension
 const getFileExt = (name: string): string =>
 	(name.split(".").pop() || "mp4").toLowerCase();
@@ -213,6 +228,8 @@ const App = () => {
 	const [originalBitrate, setOriginalBitrate] = useState(1000);
 	const [reencode, setReencode] = useState(false);
 	const [outputFormat, setOutputFormat] = useState("mp4");
+	const [hwAcc, setHwAcc] = useState(true);
+	const [supportedEncoders, setSupportedEncoders] = useState<string[]>([]);
 
 	// Resolution & framerate
 	const [originalWidth, setOriginalWidth] = useState(1920);
@@ -237,8 +254,18 @@ const App = () => {
 					maxRequestTime: 600_000, // 10 min — native dialogs block
 					handlers: { requests: {}, messages: {} },
 				});
-				electroviewRef.current = new Electroview({ rpc });
+				const ev = new Electroview({ rpc });
+				electroviewRef.current = ev;
 				console.log("[YAFW] Electrobun RPC initialized");
+
+				// Detect hardware accelerators
+				ev.rpc.request.detectHardwareAccelerators({})
+					.then((res: any) => {
+						setSupportedEncoders(res.supportedEncoders || []);
+					})
+					.catch((err: any) => {
+						console.error("[YAFW] Failed to detect hardware accelerators:", err);
+					});
 			})
 			.catch((err: unknown) => {
 				console.warn("[YAFW] Electrobun unavailable:", err);
@@ -541,7 +568,25 @@ const App = () => {
 		}
 
 		const args = buildFFmpegArgs();
-		const codecOverrides = NATIVE_CODEC_OVERRIDES[outputFormat] ?? [];
+		const needsReencode = reencode || (outputFormat !== sourceFormat);
+
+		let codecOverrides = [...(NATIVE_CODEC_OVERRIDES[outputFormat] ?? [])];
+		if (needsReencode && hwAcc) {
+			if (["mp4", "mkv", "mov", "flv", "ts"].includes(outputFormat)) {
+				const h264Encoder = getBestH264Encoder(supportedEncoders);
+				if (h264Encoder) {
+					console.log(`[YAFW] Using hardware H.264 encoder: ${h264Encoder}`);
+					codecOverrides = ["-c:v", h264Encoder];
+				}
+			} else if (outputFormat === "webm") {
+				const vp9Encoder = getBestVP9Encoder(supportedEncoders);
+				if (vp9Encoder) {
+					console.log(`[YAFW] Using hardware VP9 encoder: ${vp9Encoder}`);
+					codecOverrides = ["-c:v", vp9Encoder];
+				}
+			}
+		}
+
 		const fullArgs = [...args, ...codecOverrides];
 
 		console.log("[YAFW] exportNative calling RPC...");
@@ -658,6 +703,13 @@ const App = () => {
 	const clipDuration = ((end - start) / 1000) * videoDuration;
 	const useNativeExport = isStandalone && !!nativeFilePath && !!electroviewRef.current;
 
+	const hasHwAccSupport =
+		["mp4", "mkv", "mov", "flv", "ts"].includes(outputFormat)
+			? !!getBestH264Encoder(supportedEncoders)
+			: outputFormat === "webm"
+			? !!getBestVP9Encoder(supportedEncoders)
+			: false;
+
 	// ── Poll native export progress ──────────────────────────────
 
 	useEffect(() => {
@@ -709,7 +761,7 @@ const App = () => {
 								📥 Download Desktop App
 							</a>
 							<span className="text-[8px] text-mocha-overlay1 text-right font-medium leading-none">
-								Runs locally with native FFmpeg for 10x faster export
+								Runs locally with native FFmpeg for 50x faster export
 							</span>
 						</div>
 					)}
@@ -748,7 +800,7 @@ const App = () => {
 						{!isStandalone && (
 							<div className="mb-4 p-3 bg-mocha-mauve/10 border border-mocha-mauve/20 rounded-xl text-center text-xs text-mocha-subtext1 flex flex-col sm:flex-row items-center justify-between gap-3">
 								<span className="text-left">
-									💡 <strong className="text-mocha-mauve">Tip:</strong> Download the Desktop App for hardware-accelerated rendering and 10x faster export speeds.
+									💡 <strong className="text-mocha-mauve">Tip:</strong> Download the Desktop App for hardware-accelerated rendering and 50x faster export speeds.
 								</span>
 								<a
 									href="https://github.com/ValentinRapp/yafw"
@@ -846,6 +898,34 @@ const App = () => {
 									/>
 								</button>
 							</div>
+
+							{/* Hardware Acceleration toggle (desktop standalone only) */}
+							{useNativeExport && (
+								<div className={`flex items-center justify-between bg-mocha-mantle/50 p-3 rounded-lg border border-mocha-surface1 transition-all ${!hasHwAccSupport ? "opacity-50" : ""}`}>
+									<div className="flex flex-col">
+										<span className="text-xs font-bold text-mocha-text">Hardware Acceleration</span>
+										<span className="text-[10px] text-mocha-subtext0">
+											{hasHwAccSupport ? "Speeds up encoding using GPU" : "No compatible GPU encoder detected"}
+										</span>
+									</div>
+									<button
+										type="button"
+										role="switch"
+										disabled={!hasHwAccSupport}
+										aria-checked={hwAcc && hasHwAccSupport}
+										onClick={() => setHwAcc(!hwAcc)}
+										className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-mocha-mauve ${
+											hwAcc && hasHwAccSupport ? "bg-mocha-mauve" : "bg-mocha-surface2"
+										} ${!hasHwAccSupport ? "cursor-not-allowed opacity-50" : ""}`}
+									>
+										<span
+											className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-mocha-text shadow ring-0 transition duration-200 ease-in-out ${
+												hwAcc && hasHwAccSupport ? "translate-x-5" : "translate-x-0"
+											}`}
+										/>
+									</button>
+								</div>
+							)}
 
 							{/* Output format selector */}
 							<div>

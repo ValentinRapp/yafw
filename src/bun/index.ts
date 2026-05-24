@@ -217,6 +217,44 @@ const rpc = BrowserView.defineRPC<AppRPCType>({
 					return { fps: 30, width: 1920, height: 1080, bitrate: 0 };
 				}
 			},
+
+			detectHardwareAccelerators: async () => {
+				console.log("[YAFW] detectHardwareAccelerators called");
+				try {
+					const proc = Bun.spawn(["ffmpeg", "-encoders"], {
+						stdout: "pipe",
+						stderr: "pipe",
+					});
+					const output = await new Response(proc.stdout).text();
+					await proc.exited;
+
+					const supported: string[] = [];
+					const candidates = [
+						"h264_nvenc",
+						"h264_videotoolbox",
+						"h264_qsv",
+						"h264_amf",
+						"h264_mf",
+						"hevc_nvenc",
+						"hevc_videotoolbox",
+						"hevc_qsv",
+						"hevc_amf",
+						"hevc_mf",
+						"vp9_nvenc",
+						"vp9_qsv"
+					];
+					for (const encoder of candidates) {
+						if (output.includes(encoder)) {
+							supported.push(encoder);
+						}
+					}
+					console.log("[YAFW] Supported hardware encoders found:", supported);
+					return { supportedEncoders: supported };
+				} catch (err) {
+					console.error("[YAFW] detectHardwareAccelerators error:", err);
+					return { supportedEncoders: [] };
+				}
+			},
 		},
 		messages: {},
 	},
