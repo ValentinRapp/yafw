@@ -89,8 +89,11 @@ jobs:
 
               url "https://github.com/${owner}/yafw/releases/download/v#{version}/stable-macos-arm64-yafw.dmg"
               name "Yafw"
-              desc "Yet Another Frame Widget"
+              desc "Yet Another FFmpeg Wrapper"
               homepage "https://github.com/${owner}/yafw"
+
+              depends_on arch: :arm64
+              depends_on formula: "ffmpeg"
 
               app "yafw.app"
 
