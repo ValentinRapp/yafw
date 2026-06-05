@@ -25,7 +25,6 @@ export const Timeline = ({ startState, endState, positionState, videoDuration }:
 		e.stopPropagation();
 		setIsDragging(type);
 		
-		// Immediately jump to position if scrubbing playhead
 		if (type === "playhead") {
 			positionState.setPosition(getValFromEvent(e));
 		}
@@ -41,7 +40,6 @@ export const Timeline = ({ startState, endState, positionState, videoDuration }:
 			} else if (isDragging === "start") {
 				if (val <= endState.end) {
 					startState.setStart(val);
-					// Keep playhead inside or at start when dragging start handle
 					if (positionState.position < val) {
 						positionState.setPosition(val);
 					}
@@ -49,7 +47,6 @@ export const Timeline = ({ startState, endState, positionState, videoDuration }:
 			} else if (isDragging === "end") {
 				if (val >= startState.start) {
 					endState.setEnd(val);
-					// Keep playhead inside or at end when dragging end handle
 					if (positionState.position > val) {
 						positionState.setPosition(val);
 					}
@@ -70,7 +67,6 @@ export const Timeline = ({ startState, endState, positionState, videoDuration }:
 		};
 	}, [isDragging, startState, endState, positionState]);
 
-	// Format time helper (seconds to e.g. 02.45s)
 	const formatTime = (val: number) => {
 		const seconds = (val / 1000) * videoDuration;
 		return `${seconds.toFixed(2)}s`;
@@ -81,7 +77,6 @@ export const Timeline = ({ startState, endState, positionState, videoDuration }:
 	const widthPct = ((endState.end - startState.start) / 1000) * 100;
 	const posPct = (positionState.position / 1000) * 100;
 
-	// Render ticks for the ruler (e.g. 10 ticks)
 	const renderTicks = () => {
 		const ticks = [];
 		for (let i = 0; i <= 10; i++) {
@@ -139,7 +134,7 @@ export const Timeline = ({ startState, endState, positionState, videoDuration }:
 				<div
 					className="absolute top-1 bottom-1 bg-mocha-mauve/15 border-y-2 border-mocha-mauve/40 flex items-center justify-between shadow-inner"
 					style={{ left: `${startPct}%`, width: `${widthPct}%` }}
-					onMouseDown={(e) => e.stopPropagation()} // Prevent clicking the clip from scrubbing
+					onMouseDown={(e) => e.stopPropagation()}
 				>
 					{/* Left trim handle */}
 					<div

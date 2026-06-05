@@ -21,7 +21,6 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 		if (!video.paused) {
 			video.pause();
 		} else {
-			// If at or past the end, loop back to start
 			if (Math.ceil(positionState.position) >= endState.end) {
 				positionState.setPosition(startState.start);
 				video.currentTime = (startState.start / 1000) * (video.duration || 0);
@@ -30,7 +29,6 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 		}
 	}, [positionState.position, endState.end, startState.start]);
 
-	// Space bar toggles play/pause
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.code === "Space") {
@@ -42,7 +40,6 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [togglePlay]);
 
-	// Sync video element play state with React state
 	useEffect(() => {
 		const video = videoRef.current;
 		if (!video) return;
@@ -54,7 +51,6 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 		}
 	}, [isPlayingState.isPlaying]);
 
-	// Sync video currentTime with position state
 	useEffect(() => {
 		const video = videoRef.current;
 		if (!video || isNaN(video.duration)) return;
@@ -65,7 +61,6 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 		}
 	}, [positionState.position]);
 
-	// Sync volume and mute settings
 	useEffect(() => {
 		const video = videoRef.current;
 		if (!video) return;
@@ -105,7 +100,6 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 					className="w-full h-full object-contain cursor-pointer"
 				/>
 				
-				{/* Dark overlay showing play icon when paused */}
 				{!isPlayingState.isPlaying && (
 					<div 
 						onClick={togglePlay}
