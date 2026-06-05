@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useVideoEditorContext } from "../context/VideoEditorContext";
 
-interface PlayerProps {
-	videoSrc: string;
-	positionState: { position: number; setPosition: (time: number) => void };
-	isPlayingState: { isPlaying: boolean; setIsPlaying: (playing: boolean) => void };
-	startState: { start: number; setStart: (time: number) => void };
-	endState: { end: number; setEnd: (time: number) => void };
-	videoDuration: number;
-}
+export const Player = () => {
+	const {
+		videoSrc,
+		position,
+		setPosition,
+		isPlaying,
+		setIsPlaying,
+		start,
+		setStart,
+		end,
+		videoDuration,
+	} = useVideoEditorContext();
 
-export const Player = ({ videoSrc, positionState, isPlayingState, startState, endState, videoDuration }: PlayerProps) => {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const [volume, setVolume] = useState(1);
 	const [isMuted, setIsMuted] = useState(false);
@@ -21,13 +25,13 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 		if (!video.paused) {
 			video.pause();
 		} else {
-			if (Math.ceil(positionState.position) >= endState.end) {
-				positionState.setPosition(startState.start);
-				video.currentTime = (startState.start / 1000) * (video.duration || 0);
+			if (Math.ceil(position) >= end) {
+				setPosition(start);
+				video.currentTime = (start / 1000) * (video.duration || 0);
 			}
 			video.play().catch((err) => console.error("Playback error:", err));
 		}
-	}, [positionState.position, endState.end, startState.start]);
+	}, [position, end, start, setPosition]);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -44,22 +48,22 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 		const video = videoRef.current;
 		if (!video) return;
 
-		if (isPlayingState.isPlaying && video.paused) {
+		if (isPlaying && video.paused) {
 			video.play().catch(() => {});
-		} else if (!isPlayingState.isPlaying && !video.paused) {
+		} else if (!isPlaying && !video.paused) {
 			video.pause();
 		}
-	}, [isPlayingState.isPlaying]);
+	}, [isPlaying]);
 
 	useEffect(() => {
 		const video = videoRef.current;
 		if (!video || isNaN(video.duration)) return;
 
-		const newTime = (positionState.position / 1000) * video.duration;
+		const newTime = (position / 1000) * video.duration;
 		if (Math.abs(video.currentTime - newTime) > 0.1) {
 			video.currentTime = newTime;
 		}
-	}, [positionState.position]);
+	}, [position]);
 
 	useEffect(() => {
 		const video = videoRef.current;
@@ -72,7 +76,7 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 		const video = videoRef.current;
 		if (!video) return;
 		const progress = (video.currentTime / video.duration) * 1000;
-		positionState.setPosition(progress);
+		setPosition(progress);
 	};
 
 	const formatTimecode = (seconds: number) => {
@@ -83,7 +87,7 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 		return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
 	};
 
-	const currentSeconds = (positionState.position / 1000) * (videoRef.current?.duration || videoDuration);
+	const currentSeconds = (position / 1000) * (videoRef.current?.duration || videoDuration);
 	const durationSeconds = videoRef.current?.duration || videoDuration;
 
 	return (
@@ -92,24 +96,13 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 			<div className="relative aspect-video bg-black flex items-center justify-center group select-none">
 				<video
 					ref={videoRef}
-					src={videoSrc}
+					src={videoSrc || undefined}
 					onTimeUpdate={handleTimeUpdate}
-					onPlay={() => isPlayingState.setIsPlaying(true)}
-					onPause={() => isPlayingState.setIsPlaying(false)}
+					onPlay={() => setIsPlaying(true)}
+					onPause={() => setIsPlaying(false)}
 					onClick={togglePlay}
 					className="w-full h-full object-contain cursor-pointer"
 				/>
-				
-				{!isPlayingState.isPlaying && (
-					<div 
-						onClick={togglePlay}
-						className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer transition-opacity group-hover:opacity-100"
-					>
-						<div className="w-14 h-14 flex items-center justify-center rounded-full bg-mocha-mauve/80 text-mocha-crust text-2xl font-bold shadow-lg hover:scale-110 transition-transform">
-							▶
-						</div>
-					</div>
-				)}
 			</div>
 
 			{/* Playback Controls Toolbar */}
@@ -120,8 +113,8 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 						onClick={() => {
 							const video = videoRef.current;
 							if (video) {
-								video.currentTime = (startState.start / 1000) * video.duration;
-								positionState.setPosition(startState.start);
+								video.currentTime = (start / 1000) * video.duration;
+								setPosition(start);
 							}
 						}}
 						className="p-2 rounded-lg hover:bg-mocha-surface0 text-mocha-text active:scale-95 transition-all text-sm"
@@ -134,7 +127,7 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 							const video = videoRef.current;
 							if (video) {
 								video.currentTime = Math.max(0, video.currentTime - 0.1);
-								positionState.setPosition((video.currentTime / video.duration) * 1000);
+								setPosition((video.currentTime / video.duration) * 1000);
 							}
 						}}
 						className="p-2 rounded-lg hover:bg-mocha-surface0 text-mocha-text active:scale-95 transition-all text-sm"
@@ -147,7 +140,7 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 						className="px-4 py-2 rounded-lg bg-mocha-mauve text-mocha-crust font-bold hover:brightness-110 active:scale-95 transition-all text-xs flex items-center gap-1.5 shadow-md"
 						title="Play / Pause (Space)"
 					>
-						{isPlayingState.isPlaying ? (
+						{isPlaying ? (
 							<>
 								<span>❚❚</span>
 								<span>Pause</span>
@@ -164,7 +157,7 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 							const video = videoRef.current;
 							if (video) {
 								video.currentTime = Math.min(video.duration, video.currentTime + 0.1);
-								positionState.setPosition((video.currentTime / video.duration) * 1000);
+								setPosition((video.currentTime / video.duration) * 1000);
 							}
 						}}
 						className="p-2 rounded-lg hover:bg-mocha-surface0 text-mocha-text active:scale-95 transition-all text-sm"
@@ -176,8 +169,8 @@ export const Player = ({ videoSrc, positionState, isPlayingState, startState, en
 						onClick={() => {
 							const video = videoRef.current;
 							if (video) {
-								video.currentTime = (endState.end / 1000) * video.duration;
-								positionState.setPosition(endState.end);
+								video.currentTime = (end / 1000) * video.duration;
+								setPosition(end);
 							}
 						}}
 						className="p-2 rounded-lg hover:bg-mocha-surface0 text-mocha-text active:scale-95 transition-all text-sm"

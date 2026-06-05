@@ -1,13 +1,17 @@
 import { useRef, useState, useEffect } from "react";
+import { useVideoEditorContext } from "../context/VideoEditorContext";
 
-interface TimelineProps {
-	startState: { start: number; setStart: (time: number) => void };
-	endState: { end: number; setEnd: (time: number) => void };
-	positionState: { position: number; setPosition: (time: number) => void };
-	videoDuration: number;
-}
+export const Timeline = () => {
+	const {
+		start,
+		setStart,
+		end,
+		setEnd,
+		position,
+		setPosition,
+		videoDuration,
+	} = useVideoEditorContext();
 
-export const Timeline = ({ startState, endState, positionState, videoDuration }: TimelineProps) => {
 	const timelineRef = useRef<HTMLDivElement>(null);
 	const [isDragging, setIsDragging] = useState<"start" | "end" | "playhead" | null>(null);
 
@@ -26,7 +30,7 @@ export const Timeline = ({ startState, endState, positionState, videoDuration }:
 		setIsDragging(type);
 		
 		if (type === "playhead") {
-			positionState.setPosition(getValFromEvent(e));
+			setPosition(getValFromEvent(e));
 		}
 	};
 
@@ -36,19 +40,19 @@ export const Timeline = ({ startState, endState, positionState, videoDuration }:
 		const handleMouseMove = (e: MouseEvent) => {
 			const val = getValFromEvent(e);
 			if (isDragging === "playhead") {
-				positionState.setPosition(val);
+				setPosition(val);
 			} else if (isDragging === "start") {
-				if (val <= endState.end) {
-					startState.setStart(val);
-					if (positionState.position < val) {
-						positionState.setPosition(val);
+				if (val <= end) {
+					setStart(val);
+					if (position < val) {
+						setPosition(val);
 					}
 				}
 			} else if (isDragging === "end") {
-				if (val >= startState.start) {
-					endState.setEnd(val);
-					if (positionState.position > val) {
-						positionState.setPosition(val);
+				if (val >= start) {
+					setEnd(val);
+					if (position > val) {
+						setPosition(val);
 					}
 				}
 			}
@@ -65,17 +69,17 @@ export const Timeline = ({ startState, endState, positionState, videoDuration }:
 			window.removeEventListener("mousemove", handleMouseMove);
 			window.removeEventListener("mouseup", handleMouseUp);
 		};
-	}, [isDragging, startState, endState, positionState]);
+	}, [isDragging, start, end, position, setStart, setEnd, setPosition]);
 
 	const formatTime = (val: number) => {
 		const seconds = (val / 1000) * videoDuration;
 		return `${seconds.toFixed(2)}s`;
 	};
 
-	const startPct = (startState.start / 1000) * 100;
-	const endPct = (endState.end / 1000) * 100;
-	const widthPct = ((endState.end - startState.start) / 1000) * 100;
-	const posPct = (positionState.position / 1000) * 100;
+	const startPct = (start / 1000) * 100;
+	const endPct = (end / 1000) * 100;
+	const widthPct = ((end - start) / 1000) * 100;
+	const posPct = (position / 1000) * 100;
 
 	const renderTicks = () => {
 		const ticks = [];
@@ -146,7 +150,7 @@ export const Timeline = ({ startState, endState, positionState, videoDuration }:
 
 					{/* Label showing Clip Info */}
 					<span className="w-full text-center text-[10px] text-mocha-mauve font-semibold select-none pointer-events-none px-4 truncate">
-						✂️ ACTIVE CLIP ({formatTime(startState.start)} - {formatTime(endState.end)})
+						✂️ ACTIVE CLIP ({formatTime(start)} - {formatTime(end)})
 					</span>
 
 					{/* Right trim handle */}
