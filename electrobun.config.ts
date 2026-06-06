@@ -27,7 +27,7 @@ export default {
 		},
 	},
 	release: {
-		baseUrl: "https://github.com/ValentinRapp/yafw"
+		baseUrl: "https://github.com/ValentinRapp/yafw/releases/latest/download"
 		// baseUrl: "http://localhost:8000"
 	},
 } satisfies ElectrobunConfig;
