@@ -44,6 +44,12 @@ export type AppRPCType = {
 					supportedEncoders: string[];
 				};
 			};
+			update: {
+				params: {};
+				response: {
+					updating: boolean;
+				};
+			};
 		};
 		messages: {};
 	}>;
