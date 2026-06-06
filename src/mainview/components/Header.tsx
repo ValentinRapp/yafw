@@ -14,7 +14,7 @@ export const Header = ({
 	videoSrc,
 	onChangeVideo,
 }: HeaderProps) => (
-	<header className={`${isStandalone && isMac ? "electrobun-webkit-app-region-drag pl-24" : ""} bg-mocha-crust/80 backdrop-blur border-b border-mocha-surface0 px-6 py-4 flex items-center justify-between z-20`}>
+	<header className={`${isStandalone && isMac ? "electrobun-webkit-app-region-drag pl-20" : ""} bg-mocha-crust/80 backdrop-blur border-b border-mocha-surface0 px-6 py-4 flex items-center justify-between z-20`}>
 		<div className="flex items-center gap-3 select-none">
 			<img src={logoUrl} alt="YAFW Logo" className="w-8 h-8 object-contain rounded-md" />
 			<div>

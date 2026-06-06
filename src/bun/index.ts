@@ -1,4 +1,4 @@
-import { BrowserWindow, BrowserView, Updater, Utils } from "electrobun/bun";
+import { BrowserWindow, BrowserView, Updater, Utils, Screen } from "electrobun/bun";
 import { type AppRPCType } from "../shared/types";
 import { basename, dirname, extname, join } from "path";
 import { homedir } from "os";
@@ -18,8 +18,9 @@ const previewServer = Bun.serve({
 			return new Response(null, {
 				headers: {
 					"Access-Control-Allow-Origin": "*",
-					"Access-Control-Allow-Methods": "GET, HEAD",
-					"Access-Control-Allow-Headers": "Range",
+					"Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+					"Access-Control-Allow-Headers": "Range, Content-Type",
+					"Access-Control-Max-Age": "86400",
 				},
 			});
 		}
@@ -34,7 +35,13 @@ const previewServer = Bun.serve({
 		}
 
 		return new Response(file, {
-			headers: { "Access-Control-Allow-Origin": "*" },
+			headers: {
+				"Access-Control-Allow-Origin": "*",
+				"Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+				"Access-Control-Allow-Headers": "Range, Content-Type",
+				"Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
+				"Accept-Ranges": "bytes",
+			},
 		});
 	},
 });
@@ -188,7 +195,7 @@ const rpc = BrowserView.defineRPC<AppRPCType>({
 						"ffprobe",
 						"-v", "error",
 						"-select_streams", "v:0",
-						"-show_entries", "stream=r_frame_rate,width,height,bit_rate",
+						"-show_entries", "stream=r_frame_rate,width,height,bit_rate,duration:format=duration",
 						"-of", "json",
 						inputPath,
 					], { stdout: "pipe", stderr: "pipe" });
@@ -198,6 +205,7 @@ const rpc = BrowserView.defineRPC<AppRPCType>({
 
 					const data = JSON.parse(output);
 					const stream = data?.streams?.[0] ?? {};
+					const format = data?.format ?? {};
 
 					// Parse r_frame_rate fraction (e.g. "30000/1001" → 29.97)
 					let fps = 30;
@@ -210,12 +218,13 @@ const rpc = BrowserView.defineRPC<AppRPCType>({
 					const height = stream.height ?? 1080;
 					// bit_rate is in bps, convert to kbps
 					const bitrate = stream.bit_rate ? Math.round(parseInt(stream.bit_rate) / 1000) : 0;
+					const duration = parseFloat(stream.duration || format.duration || "0");
 
-					console.log(`[YAFW] Probe: ${width}x${height} @ ${fps}fps, ${bitrate}kbps`);
-					return { fps, width, height, bitrate };
+					console.log(`[YAFW] Probe: ${width}x${height} @ ${fps}fps, ${bitrate}kbps, duration: ${duration}s`);
+					return { fps, width, height, bitrate, duration };
 				} catch (err) {
 					console.error("[YAFW] probeVideo error:", err);
-					return { fps: 30, width: 1920, height: 1080, bitrate: 0 };
+					return { fps: 30, width: 1920, height: 1080, bitrate: 0, duration: 0 };
 				}
 			},
 
@@ -293,15 +302,33 @@ async function getMainViewUrl(): Promise<string> {
 const url = await getMainViewUrl();
 console.log("[YAFW] Loading URL:", url);
 
+const windowWidth = 1280;
+const windowHeight = 1000;
+let x = 100;
+let y = 100;
+
+try {
+	const primary = Screen.getPrimaryDisplay();
+	const workArea = primary.workArea || primary.bounds;
+	if (workArea && workArea.width && workArea.height) {
+		x = Math.round(workArea.x + (workArea.width - windowWidth) / 2);
+		y = Math.round(workArea.y + (workArea.height - windowHeight) / 2);
+	}
+} catch (e) {
+	console.error("[YAFW] Failed to calculate centered window position:", e);
+	x = 510;
+	y = 200;
+}
+
 const mainWindow = new BrowserWindow({
 	title: "YAFW",
 	url,
 	rpc,
 	frame: {
-		width: 1280,
-		height: 1000,
-		x: 510,
-		y: 200,
+		width: windowWidth,
+		height: windowHeight,
+		x,
+		y,
 	},
 	// hiddenInset gives a clean look on macOS, but on Windows it removes
 	// the minimize/maximize/close buttons — so only use it on macOS.
