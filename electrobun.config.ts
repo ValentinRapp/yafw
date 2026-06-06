@@ -4,7 +4,7 @@ export default {
 	app: {
 		name: "yafw",
 		identifier: "yafw.electrobun.dev",
-		version: "0.7",
+		version: "0.7.1",
 	},
 	build: {
 		// Vite builds to dist/, Electrobun copies from there into the bundle
