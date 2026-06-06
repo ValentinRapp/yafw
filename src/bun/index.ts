@@ -2,6 +2,7 @@ import { BrowserWindow, BrowserView, Updater, Utils } from "electrobun/bun";
 import { type AppRPCType } from "../shared/types";
 import { basename, dirname, extname, join } from "path";
 import { homedir } from "os";
+import { update } from "./updater";
 
 const DEV_SERVER_PORT = 5173;
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
@@ -255,6 +256,19 @@ const rpc = BrowserView.defineRPC<AppRPCType>({
 					return { supportedEncoders: [] };
 				}
 			},
+
+			update: async () => {
+				console.log("[YAFW] update check called");
+				try {
+					const check = await Updater.checkForUpdate();
+        			const updating = !!check.updateAvailable;
+					updating && update(); // Don't await, run in background
+					return { updating };
+				} catch (err) {
+					console.error("[YAFW] update RPC handler failed:", err);
+					return { updating: false };
+				}
+			}
 		},
 		messages: {},
 	},
