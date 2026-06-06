@@ -4,7 +4,7 @@ export default {
 	app: {
 		name: "yafw",
 		identifier: "yafw.electrobun.dev",
-		version: "0.0.1",
+		version: "0.7",
 	},
 	build: {
 		// Vite builds to dist/, Electrobun copies from there into the bundle
@@ -25,5 +25,9 @@ export default {
 			bundleCEF: false,
 			icon: "src/mainview/assets/logo.ico",
 		},
+	},
+	release: {
+		baseUrl: "https://github.com/ValentinRapp/yafw"
+		// baseUrl: "http://localhost:8000"
 	},
 } satisfies ElectrobunConfig;
