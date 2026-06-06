@@ -35,6 +35,7 @@ export type AppRPCType = {
 					width: number;
 					height: number;
 					bitrate: number; // kbps
+					duration: number; // seconds
 				};
 			};
 			/** Probes FFmpeg to check which hardware encoders are supported */

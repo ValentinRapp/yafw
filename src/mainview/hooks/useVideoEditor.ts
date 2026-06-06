@@ -192,19 +192,39 @@ export const useVideoEditor = () => {
 			setOutputFormat(ext);
 			setExportError(null);
 			setExportSuccess(null);
-			detectVideoMetadata(previewUrl);
 
-			const probed = await probeWithWasm(previewUrl, result.path);
-			if (probed.fps !== null) {
+			console.log("[YAFW] Calling native probeVideo RPC...");
+			const probed = await electroview.rpc.request.probeVideo({ inputPath: result.path });
+			console.log("[YAFW] native probeVideo result:", probed);
+
+			// Initialize metadata states directly from native probe values
+			const duration = probed.duration || 0;
+			setVideoDuration(duration);
+			setStart(0);
+			setEnd(1000);
+			setPosition(0);
+
+			const w = probed.width || 1920;
+			const h = probed.height || 1080;
+			setOriginalWidth(w);
+			setOriginalHeight(h);
+			setOutputWidth(w);
+			setOutputHeight(h);
+
+			if (probed.fps) {
 				setOriginalFps(probed.fps);
 				setOutputFps(probed.fps);
 			} else {
 				setOriginalFps(30);
 				setOutputFps(30);
 			}
-			if (probed.bitrate !== null) {
+
+			if (probed.bitrate) {
 				setOriginalBitrate(probed.bitrate);
 				setBitrate(probed.bitrate);
+			} else {
+				setOriginalBitrate(1000);
+				setBitrate(1000);
 			}
 		} catch (err) {
 			console.error("[YAFW] handleNativeBrowse error:", err);
