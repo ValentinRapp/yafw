@@ -4,6 +4,25 @@ import { basename, dirname, extname, join } from "path";
 import { homedir } from "os";
 import { update } from "./updater";
 
+const getBinaryPathAsync = async (name: "ffmpeg" | "ffprobe"): Promise<string> => {
+	if (process.platform === "darwin") {
+		const paths = [
+			`/opt/homebrew/bin/${name}`,
+			`/usr/local/bin/${name}`,
+			`/opt/local/bin/${name}`,
+		];
+		for (const p of paths) {
+			if (await Bun.file(p).exists()) {
+				return p;
+			}
+		}
+	}
+	return name;
+}
+
+const ffmpegPathPromise = getBinaryPathAsync("ffmpeg");
+const ffprobePathPromise = getBinaryPathAsync("ffprobe");
+
 const DEV_SERVER_PORT = 5173;
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
 
@@ -125,7 +144,7 @@ const rpc = BrowserView.defineRPC<AppRPCType>({
 					];
 					console.log(`[FFmpeg] ffmpeg ${fullArgs.join(" ")}`);
 
-					const proc = Bun.spawn(["ffmpeg", ...fullArgs], {
+					const proc = Bun.spawn([await ffmpegPathPromise, ...fullArgs], {
 						stdout: "pipe",
 						stderr: "pipe",
 					});
@@ -192,7 +211,7 @@ const rpc = BrowserView.defineRPC<AppRPCType>({
 				console.log("[YAFW] probeVideo:", inputPath);
 				try {
 					const proc = Bun.spawn([
-						"ffprobe",
+						await ffprobePathPromise,
 						"-v", "error",
 						"-select_streams", "v:0",
 						"-show_entries", "stream=r_frame_rate,width,height,bit_rate,duration:format=duration",
@@ -231,7 +250,7 @@ const rpc = BrowserView.defineRPC<AppRPCType>({
 			detectHardwareAccelerators: async () => {
 				console.log("[YAFW] detectHardwareAccelerators called");
 				try {
-					const proc = Bun.spawn(["ffmpeg", "-encoders"], {
+					const proc = Bun.spawn([await ffmpegPathPromise, "-encoders"], {
 						stdout: "pipe",
 						stderr: "pipe",
 					});
