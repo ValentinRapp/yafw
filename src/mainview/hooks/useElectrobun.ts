@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { isStandalone } from "../env";
+import { isStandalone as rawIsStandalone } from "../env";
 import { type AppRPCType } from "../../shared/types";
 
 let sharedElectroview: any = null;
@@ -10,9 +10,14 @@ const listeners = new Set<(ev: any, encoders: string[]) => void>();
 export const useElectrobun = () => {
 	const [supportedEncoders, setSupportedEncoders] = useState<string[]>(sharedSupportedEncoders);
 	const [electroview, setElectroview] = useState<any>(sharedElectroview);
+	const [isStandalone, setIsStandalone] = useState(false);
 
 	useEffect(() => {
-		if (!isStandalone) return;
+		if (rawIsStandalone) {
+			setIsStandalone(true);
+		}
+
+		if (!rawIsStandalone) return;
 
 		if (sharedElectroview) {
 			setElectroview(sharedElectroview);

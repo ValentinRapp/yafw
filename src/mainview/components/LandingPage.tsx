@@ -1,17 +1,18 @@
 import { FileDropZone } from "./FileDropZone";
-import { isStandalone } from "../env";
 import logoUrl from "../assets/logo.png";
 
 interface LandingPageProps {
 	onFileSelect: (file: File) => void;
 	onNativeBrowse: () => void;
 	onNavigateDownload: () => void;
+	isStandalone: boolean;
 }
 
 export const LandingPage = ({
 	onFileSelect,
 	onNativeBrowse,
 	onNavigateDownload,
+	isStandalone,
 }: LandingPageProps) => (
 	<>
 		<div className="text-center mb-8">
@@ -48,6 +49,7 @@ export const LandingPage = ({
 				onNativeBrowse={
 					isStandalone ? onNativeBrowse : undefined
 				}
+				isStandalone={isStandalone}
 			/>
 		</div>
 

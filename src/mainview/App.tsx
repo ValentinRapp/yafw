@@ -9,7 +9,7 @@ import { useElectrobun } from "./hooks/useElectrobun";
 import { Updating } from "./components/Updating";
 import { isMac } from "./env";
 
-const App = () => {
+const ClientApp = () => {
 	const editorState = useVideoEditor();
 	const {
 		videoSrc,
@@ -65,6 +65,7 @@ const App = () => {
 						setCurrentPage={setCurrentPage}
 						videoSrc={videoSrc}
 						onChangeVideo={handleChangeVideo}
+						isStandalone={isStandalone}
 					/>
 
 					{/* Main Content Area */}
@@ -90,6 +91,7 @@ const App = () => {
 											onFileSelect={handleFileSelect}
 											onNativeBrowse={handleNativeBrowse}
 											onNavigateDownload={() => setCurrentPage("download")}
+											isStandalone={isStandalone}
 										/>
 									)}
 								</div>
@@ -106,6 +108,41 @@ const App = () => {
 			}
 		</div>
 	);
+};
+
+const ServerApp = () => {
+    return (
+        <div className="flex flex-col bg-mocha-base min-h-screen text-mocha-text relative overflow-hidden">
+            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-mocha-mauve/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-1/4 left-1/3 w-[300px] h-[300px] bg-mocha-blue/3 rounded-full blur-[100px] pointer-events-none" />
+            
+            <Header 
+                currentPage="editor"
+                setCurrentPage={() => {}} 
+                videoSrc={null} 
+                onChangeVideo={() => {}} 
+                isStandalone={false}
+            />
+
+            <div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10 w-full">
+                <div className="bg-mocha-surface0/60 backdrop-blur-md rounded-2xl border border-mocha-surface0 shadow-2xl w-full max-w-2xl p-8 md:p-12">
+                    <LandingPage 
+                        onFileSelect={() => {}} 
+                        onNativeBrowse={() => {}} 
+                        onNavigateDownload={() => {}} 
+                        isStandalone={false}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const App = () => {
+    if (import.meta.env.SSR) {
+        return <ServerApp />;
+    }
+    return <ClientApp />;
 };
 
 export default App;
