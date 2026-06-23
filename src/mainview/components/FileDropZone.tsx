@@ -1,12 +1,16 @@
 import { useRef, useState } from "react";
-import { isStandalone } from "../env";
 
 interface FileDropZoneProps {
 	onFileSelect: (file: File) => void;
 	onNativeBrowse?: () => void;
+	isStandalone: boolean;
 }
 
-export const FileDropZone = ({ onFileSelect, onNativeBrowse }: FileDropZoneProps) => {
+export const FileDropZone = ({
+	onFileSelect,
+	onNativeBrowse,
+	isStandalone,
+}: FileDropZoneProps) => {
 	const [isDragging, setIsDragging] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 

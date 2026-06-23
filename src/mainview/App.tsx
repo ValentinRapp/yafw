@@ -65,6 +65,7 @@ const ClientApp = () => {
 						setCurrentPage={setCurrentPage}
 						videoSrc={videoSrc}
 						onChangeVideo={handleChangeVideo}
+						isStandalone={isStandalone}
 					/>
 
 					{/* Main Content Area */}
@@ -90,6 +91,7 @@ const ClientApp = () => {
 											onFileSelect={handleFileSelect}
 											onNativeBrowse={handleNativeBrowse}
 											onNavigateDownload={() => setCurrentPage("download")}
+											isStandalone={isStandalone}
 										/>
 									)}
 								</div>
@@ -119,6 +121,7 @@ const ServerApp = () => {
                 setCurrentPage={() => {}} 
                 videoSrc={null} 
                 onChangeVideo={() => {}} 
+                isStandalone={false}
             />
 
             <div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10 w-full">
@@ -127,6 +130,7 @@ const ServerApp = () => {
                         onFileSelect={() => {}} 
                         onNativeBrowse={() => {}} 
                         onNavigateDownload={() => {}} 
+                        isStandalone={false}
                     />
                 </div>
             </div>
