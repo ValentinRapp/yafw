@@ -1,4 +1,4 @@
-import { isStandalone, isMac } from "../env";
+import { isMac } from "../env";
 import logoUrl from "../assets/logo.png";
 
 interface HeaderProps {
@@ -6,6 +6,7 @@ interface HeaderProps {
 	setCurrentPage: (page: "editor" | "download") => void;
 	videoSrc: string | null;
 	onChangeVideo: () => void;
+	isStandalone: boolean;
 }
 
 export const Header = ({
@@ -13,6 +14,7 @@ export const Header = ({
 	setCurrentPage,
 	videoSrc,
 	onChangeVideo,
+	isStandalone,
 }: HeaderProps) => (
 	<header className={`${isStandalone && isMac ? "electrobun-webkit-app-region-drag pl-20" : ""} bg-mocha-crust/80 backdrop-blur border-b border-mocha-surface0 px-6 py-4 flex items-center justify-between z-20`}>
 		<div className="flex items-center gap-3 select-none">
